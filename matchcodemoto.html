@@ -1,0 +1,1032 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MotoMatch</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Exo+2:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-storage-compat.js"></script>
+<style>
+:root{--blue:#2563eb;--blue-bright:#3b82f6;--blue-glow:rgba(59,130,246,.35);--bg:#050810;--card:#0d1117;--card2:#111827;--border:#1e293b;--text:#e2e8f0;--muted:#64748b;--green:#22c55e;--red:#ef4444;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Exo 2',sans-serif;min-height:100vh;overflow-x:hidden;}
+h1,h2,h3,.label{font-family:'Rajdhani',sans-serif;letter-spacing:.05em;}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(37,99,235,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(37,99,235,.04) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0;}
+.page{position:relative;z-index:1;}
+[x-cloak]{display:none!important;}
+
+/* SPLASH */
+.splash{min-height:100vh;display:flex;align-items:center;justify-content:center;cursor:pointer;background:radial-gradient(ellipse at 50% 60%,rgba(37,99,235,.18) 0%,transparent 70%);}
+.splash-inner{text-align:center;animation:splashIn .8s ease-out;}
+@keyframes splashIn{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:none}}
+.splash-logo{width:130px;height:130px;background:linear-gradient(135deg,#1d4ed8,#3b82f6);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 28px;box-shadow:0 0 60px var(--blue-glow),0 0 120px rgba(37,99,235,.15);animation:pulse-logo 3s ease-in-out infinite;}
+@keyframes pulse-logo{0%,100%{box-shadow:0 0 60px var(--blue-glow)}50%{box-shadow:0 0 90px rgba(59,130,246,.6)}}
+.splash-logo i{font-size:60px;color:#fff;}
+.splash h1{font-size:72px;line-height:1;color:#fff;}
+.splash h1 span{color:var(--blue-bright);}
+.splash p{color:#93c5fd;font-size:14px;font-weight:600;letter-spacing:.2em;margin-top:10px;}
+.splash-cta{margin-top:48px;display:inline-block;background:var(--blue);padding:14px 48px;border-radius:50px;font-family:'Rajdhani',sans-serif;font-size:18px;font-weight:700;letter-spacing:.15em;animation:cta-pulse 2s ease-in-out infinite;box-shadow:0 0 30px var(--blue-glow);}
+@keyframes cta-pulse{0%,100%{opacity:1}50%{opacity:.6}}
+
+/* LOGIN */
+.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;}
+.login-card{display:flex;width:100%;max-width:860px;border-radius:32px;overflow:hidden;box-shadow:0 0 80px rgba(37,99,235,.12),0 0 0 1px var(--border);animation:fadeUp .5s ease-out;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:none}}
+.login-left{width:38%;background:linear-gradient(160deg,#0f1f4a 0%,var(--bg) 100%);padding:40px 32px;display:flex;flex-direction:column;border-right:1px solid var(--border);}
+.login-logo{width:72px;height:72px;background:linear-gradient(135deg,#1d4ed8,#3b82f6);border-radius:50%;display:flex;align-items:center;justify-content:center;margin-bottom:24px;box-shadow:0 0 30px var(--blue-glow);}
+.login-logo i{font-size:32px;color:#fff;}
+.login-left h1{font-size:42px;color:#fff;line-height:1;}
+.login-left h1 span{color:var(--blue-bright);}
+.login-left p{color:#93c5fd;font-size:11px;font-weight:700;letter-spacing:.2em;margin-top:10px;}
+.login-right{flex:1;background:var(--card);padding:44px 40px;}
+.login-right h2{font-size:28px;margin-bottom:28px;color:#fff;}
+.form-group{margin-bottom:18px;}
+.form-label{display:block;font-size:10px;font-weight:700;letter-spacing:.12em;color:var(--muted);margin-bottom:6px;}
+.input-wrap{position:relative;}
+.input-wrap .icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:14px;pointer-events:none;}
+.input-wrap .eye{position:absolute;right:12px;top:50%;transform:translateY(-50%);color:var(--muted);cursor:pointer;font-size:14px;}
+.form-input{width:100%;background:var(--card2);border:1px solid var(--border);border-radius:10px;color:var(--text);padding:11px 12px 11px 38px;font-family:'Exo 2',sans-serif;font-size:14px;transition:border-color .2s,box-shadow .2s;outline:none;}
+.form-input:focus{border-color:var(--blue-bright);box-shadow:0 0 0 3px rgba(59,130,246,.15);}
+.form-row{display:flex;gap:10px;align-items:center;margin-bottom:20px;font-size:11px;font-weight:700;color:var(--muted);}
+.form-row label{display:flex;align-items:center;gap:6px;cursor:pointer;}
+.form-row a{margin-left:auto;color:var(--blue-bright);text-decoration:none;}
+.btn{width:100%;padding:13px;border-radius:12px;font-family:'Rajdhani',sans-serif;font-size:18px;font-weight:700;letter-spacing:.08em;border:none;cursor:pointer;transition:all .15s;}
+.btn:active{transform:scale(.97);}
+.btn-primary{background:var(--blue);color:#fff;box-shadow:0 4px 20px rgba(37,99,235,.35);}
+.btn-primary:hover{background:#1d4ed8;}
+.btn-secondary{background:transparent;color:var(--blue-bright);border:1.5px solid var(--blue-bright);margin-top:10px;}
+.btn-secondary:hover{background:rgba(59,130,246,.08);}
+.or-divider{text-align:center;color:var(--muted);font-size:12px;font-weight:700;margin:12px 0;}
+.error-msg{color:var(--red);font-size:12px;font-weight:600;margin-bottom:10px;}
+
+/* APP SHELL */
+.app-shell{display:flex;min-height:100vh;}
+.sidebar{position:fixed;top:0;left:0;height:100vh;width:240px;background:var(--card);border-right:1px solid var(--border);display:flex;flex-direction:column;z-index:100;transform:translateX(-100%);transition:transform .3s cubic-bezier(.4,0,.2,1);}
+.sidebar.open{transform:none;}
+.sidebar-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:99;opacity:0;visibility:hidden;transition:opacity .3s;}
+.sidebar-overlay.open{opacity:1;visibility:visible;}
+.sidebar-head{padding:24px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;}
+.sidebar-logo{width:44px;height:44px;background:linear-gradient(135deg,#1d4ed8,#3b82f6);border-radius:50%;display:flex;align-items:center;justify-content:center;}
+.sidebar-logo i{color:#fff;font-size:18px;}
+.sidebar-brand h2{font-size:22px;color:#fff;line-height:1;}
+.sidebar-brand p{color:var(--blue-bright);font-size:11px;font-weight:700;letter-spacing:.1em;}
+.sidebar-nav{flex:1;padding:16px 12px;display:flex;flex-direction:column;gap:4px;}
+.nav-btn{display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:10px;background:transparent;border:none;color:var(--muted);font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:600;cursor:pointer;transition:all .15s;text-align:left;width:100%;}
+.nav-btn:hover{background:var(--card2);color:var(--text);}
+.nav-btn.active{background:rgba(37,99,235,.18);color:var(--blue-bright);border-left:3px solid var(--blue);}
+.nav-btn i{width:20px;text-align:center;font-size:15px;}
+.sidebar-foot{padding:16px 12px;border-top:1px solid var(--border);}
+.btn-logout-side{display:flex;align-items:center;gap:10px;padding:11px 14px;border-radius:10px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.2);color:#f87171;font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:600;cursor:pointer;transition:all .15s;width:100%;}
+.btn-logout-side:hover{background:rgba(239,68,68,.2);}
+.main{flex:1;min-height:100vh;}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 20px;border-bottom:1px solid var(--border);background:rgba(13,17,23,.8);backdrop-filter:blur(10px);position:sticky;top:0;z-index:50;position:relative;}
+.btn-menu{background:var(--card2);border:1px solid var(--border);border-radius:14px;width:48px;height:48px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text);font-size:18px;transition:all .15s;}
+.btn-menu:hover{border-color:var(--blue-bright);color:var(--blue-bright);}
+.page-title{font-size:18px;font-weight:700;color:#fff;position:absolute;left:50%;transform:translateX(-50%);padding:10px 26px;background:rgba(15,23,42,.95);border-radius:999px;border:1px solid rgba(255,255,255,.08);}
+.topbar-right{display:flex;gap:10px;}
+.topbar-btn{background:rgba(15,23,42,.95);border:1px solid rgba(59,130,246,.3);border-radius:14px;width:44px;height:44px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text);font-size:15px;transition:all .15s;}
+.topbar-btn:hover{color:#fff;border-color:var(--blue-bright);background:rgba(37,99,235,.15);}
+.content{padding:24px 20px;}
+
+/* DASHBOARD */
+.unit-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px;margin-bottom:20px;}
+.unit-card h3{font-size:13px;letter-spacing:.12em;color:var(--blue-bright);margin-bottom:14px;}
+.unit-inputs{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.unit-inputs input{background:var(--card2);border:1px solid var(--border);border-radius:10px;color:var(--text);padding:10px 12px;font-family:'Exo 2',sans-serif;font-size:14px;outline:none;transition:border-color .2s;}
+.unit-inputs input:focus{border-color:var(--blue-bright);}
+.dash-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
+.bike-card{background:var(--card);border:1px solid var(--border);border-radius:16px;overflow:hidden;}
+.bike-img{height:200px;background:linear-gradient(135deg,#0f1f4a,#0d1117);overflow:hidden;}
+.bike-img img{width:100%;height:100%;object-fit:cover;opacity:.85;}
+.bike-info{padding:16px;}
+.bike-name{font-size:18px;font-weight:700;color:var(--blue-bright);}
+.bike-sub{font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.1em;text-transform:uppercase;margin-top:2px;}
+.eco-badge{margin-top:14px;background:#0c1e3a;border:1px solid #1e3a8a;border-radius:12px;padding:12px 14px;display:flex;gap:12px;align-items:center;}
+.eco-icon{width:40px;height:40px;background:rgba(37,99,235,.2);border-radius:8px;display:flex;align-items:center;justify-content:center;}
+.eco-icon i{color:#93c5fd;font-size:18px;}
+.eco-text h4{font-size:14px;font-weight:700;color:#93c5fd;}
+.eco-text p{font-size:11px;color:var(--muted);margin-top:2px;}
+.right-panel{display:flex;flex-direction:column;gap:14px;}
+.scan-big-btn{background:linear-gradient(135deg,#1d4ed8,#2563eb);border:none;border-radius:14px;padding:28px;color:#fff;font-family:'Rajdhani',sans-serif;font-size:22px;font-weight:700;letter-spacing:.08em;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:12px;box-shadow:0 4px 30px rgba(37,99,235,.3);transition:all .2s;}
+.scan-big-btn:hover{transform:translateY(-2px);box-shadow:0 8px 40px rgba(37,99,235,.4);}
+.scan-big-btn i{font-size:26px;}
+.recent-card{background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden;flex:1;}
+.recent-head{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;}
+.recent-head span{font-size:12px;font-weight:700;letter-spacing:.1em;color:var(--muted);}
+.recent-head a{color:var(--blue-bright);font-size:11px;font-weight:600;text-decoration:none;}
+.recent-item{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:600;}
+.recent-item:last-child{border-bottom:none;}
+.recent-item.today{background:rgba(37,99,235,.08);}
+.recent-item-left{display:flex;align-items:center;gap:12px;}
+.recent-thumb{width:44px;height:44px;border-radius:14px;background:rgba(37,99,235,.12);display:flex;align-items:center;justify-content:center;color:#93c5fd;font-size:18px;}
+.recent-title{font-size:14px;font-weight:700;color:#fff;}
+.recent-delete{background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:8px;border-radius:10px;transition:color .2s,background .2s;}
+.recent-delete:hover{color:#fff;background:rgba(59,130,246,.12);}
+.recent-time{font-size:11px;color:var(--muted);}
+
+/* SCANNER */
+.scanner-wrap{max-width:560px;margin:0 auto;}
+.cam-box{width:100%;aspect-ratio:4/3;background:var(--card);border:2px dashed var(--border);border-radius:20px;overflow:hidden;position:relative;display:flex;align-items:center;justify-content:center;margin-bottom:20px;}
+.cam-box img.preview{width:100%;height:100%;object-fit:cover;}
+.cam-placeholder{text-align:center;color:var(--muted);}
+.cam-placeholder i{font-size:56px;display:block;margin-bottom:10px;}
+.cam-placeholder p{font-size:13px;}
+.scanning-line{position:absolute;left:0;right:0;height:2px;background:var(--blue-bright);box-shadow:0 0 16px var(--blue-bright),0 0 40px rgba(59,130,246,.4);animation:scan-anim 2s linear infinite;z-index:2;}
+@keyframes scan-anim{0%{top:0}100%{top:100%}}
+.scan-corner{position:absolute;width:30px;height:30px;z-index:3;}
+.scan-corner.tl{top:12px;left:12px;border-top:3px solid var(--blue-bright);border-left:3px solid var(--blue-bright);border-radius:4px 0 0 0;}
+.scan-corner.br{bottom:12px;right:12px;border-bottom:3px solid var(--blue-bright);border-right:3px solid var(--blue-bright);border-radius:0 0 4px 0;}
+.scan-actions{display:flex;flex-direction:column;gap:12px;}
+.result-card{border-radius:14px;padding:16px 20px;display:flex;align-items:flex-start;gap:14px;}
+.result-card.found{background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.3);}
+.result-card.fail{background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.3);}
+.result-icon{font-size:22px;margin-top:2px;}
+.result-card.found .result-icon{color:var(--green);}
+.result-card.fail .result-icon{color:var(--red);}
+.result-body h4{font-size:15px;font-weight:700;margin-bottom:4px;}
+.result-card.found h4{color:var(--green);}
+.result-card.fail h4{color:var(--red);}
+.result-body p{font-size:12px;color:var(--muted);line-height:1.5;}
+.shop-links{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:4px;}
+.shop-btn{display:flex;align-items:center;justify-content:center;gap:10px;padding:14px;border-radius:12px;font-family:'Rajdhani',sans-serif;font-size:17px;font-weight:700;letter-spacing:.05em;text-decoration:none;transition:all .15s;}
+.shop-btn:hover{transform:translateY(-2px);}
+.shop-shopee{background:linear-gradient(135deg,#f97316,#ea580c);color:#fff;box-shadow:0 4px 20px rgba(249,115,22,.3);}
+.shop-lazada{background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;box-shadow:0 4px 20px rgba(37,99,235,.3);}
+.upload-label{display:flex;align-items:center;justify-content:center;gap:10px;padding:14px;border-radius:12px;background:var(--card);border:1.5px dashed var(--border);color:var(--muted);font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:600;cursor:pointer;transition:all .15s;}
+.upload-label:hover{border-color:var(--blue-bright);color:var(--blue-bright);}
+.btn-scan{background:var(--blue);color:#fff;border:none;border-radius:12px;padding:14px;font-family:'Rajdhani',sans-serif;font-size:18px;font-weight:700;letter-spacing:.08em;cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:10px;box-shadow:0 4px 20px rgba(37,99,235,.3);width:100%;}
+.btn-scan:hover{background:#1d4ed8;}
+.btn-scan:disabled{opacity:.5;cursor:not-allowed;}
+.btn-reset{background:transparent;border:1px solid var(--border);border-radius:10px;padding:10px;color:var(--muted);font-family:'Exo 2',sans-serif;font-size:13px;cursor:pointer;width:100%;transition:border-color .15s;}
+.btn-reset:hover{border-color:var(--muted);}
+.scan-history{margin-top:28px;}
+.scan-history h3{font-size:13px;letter-spacing:.12em;color:var(--muted);margin-bottom:12px;}
+.history-item{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:8px;display:flex;align-items:center;gap:14px;}
+.history-thumb{width:48px;height:48px;border-radius:8px;object-fit:cover;background:var(--card2);flex-shrink:0;}
+.history-info{flex:1;}
+.history-info .part-name{font-size:14px;font-weight:600;color:var(--text);}
+.history-info .part-time{font-size:11px;color:var(--muted);margin-top:2px;}
+.history-links{display:flex;gap:8px;margin-top:6px;}
+.history-links a{font-size:11px;font-weight:700;padding:4px 10px;border-radius:6px;text-decoration:none;}
+.hl-shopee{background:rgba(249,115,22,.15);color:#fb923c;}
+.hl-lazada{background:rgba(59,130,246,.15);color:#60a5fa;}
+.status-badge{font-size:11px;font-weight:700;padding:3px 8px;border-radius:6px;}
+.status-found{background:rgba(34,197,94,.1);color:var(--green);}
+.status-fail{background:rgba(239,68,68,.1);color:var(--red);}
+
+/* PROFILE */
+.profile-header{background:rgba(15,23,42,.95);border:1px solid rgba(255,255,255,.06);border-radius:24px;padding:28px;display:flex;flex-wrap:wrap;align-items:center;gap:24px;margin-bottom:24px;}
+.profile-avatar-wrap{position:relative;flex-shrink:0;}
+.profile-avatar{width:110px;height:110px;border-radius:50%;border:4px solid #2563eb;object-fit:cover;}
+.avatar-edit{position:absolute;bottom:6px;right:6px;width:32px;height:32px;background:var(--blue);border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;border:2px solid var(--bg);}
+.avatar-edit i{color:#fff;font-size:12px;}
+.profile-details{flex:1;min-width:220px;}
+.profile-name{font-size:26px;font-weight:800;color:#fff;letter-spacing:.05em;}
+.profile-meta{font-size:14px;color:var(--muted);margin-top:8px;line-height:1.5;}
+.profile-chips{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px;}
+.chip{display:inline-flex;align-items:center;gap:8px;padding:8px 14px;border-radius:999px;background:rgba(37,99,235,.12);border:1px solid rgba(59,130,246,.2);font-size:12px;font-weight:700;color:#93c5fd;text-transform:uppercase;letter-spacing:.08em;}
+.profile-menu{display:flex;flex-direction:column;gap:12px;}
+.profile-menu-item{background:rgba(15,23,42,.95);border:1px solid rgba(255,255,255,.06);border-radius:18px;padding:18px 20px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;transition:all .2s;}
+.profile-menu-item:hover{background:rgba(37,99,235,.12);border-color:rgba(37,99,235,.2);}
+.profile-menu-item span{display:flex;align-items:center;gap:12px;font-size:15px;font-weight:700;color:#fff;}
+.profile-menu-item i{color:var(--blue-bright);font-size:16px;}
+.btn-logout-big{width:100%;margin-top:20px;padding:16px;background:rgba(185,28,28,.15);border:1px solid rgba(185,28,28,.35);border-radius:18px;color:#f87171;font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:700;cursor:pointer;letter-spacing:.12em;transition:all .2s;}
+.btn-logout-big:hover{background:rgba(239,68,68,.2);}
+
+/* SETTINGS */
+.settings-section{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:24px;margin-bottom:16px;}
+.settings-section h3{font-size:16px;letter-spacing:.08em;color:var(--blue-bright);margin-bottom:18px;}
+.toggle-row{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border);}
+.toggle-row:last-child{border-bottom:none;padding-bottom:0;}
+.toggle-label{font-size:14px;font-weight:600;}
+.toggle-sub{font-size:11px;color:var(--muted);margin-top:2px;}
+.toggle-btn{width:44px;height:24px;background:var(--border);border-radius:50px;position:relative;cursor:pointer;transition:background .2s;border:none;flex-shrink:0;}
+.toggle-btn.on{background:var(--blue);}
+.toggle-btn::after{content:'';position:absolute;top:3px;left:3px;width:18px;height:18px;background:#fff;border-radius:50%;transition:left .2s;}
+.toggle-btn.on::after{left:23px;}
+
+/* MODAL */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px;}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:28px;width:100%;max-width:460px;}
+.modal h2{font-size:22px;margin-bottom:20px;color:#fff;}
+.modal-actions{display:flex;gap:10px;margin-top:20px;}
+.btn-cancel{flex:1;padding:12px;background:var(--card2);border:1px solid var(--border);border-radius:10px;color:var(--muted);font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:600;cursor:pointer;}
+.btn-save{flex:1;padding:12px;background:var(--blue);border:none;border-radius:10px;color:#fff;font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:700;cursor:pointer;}
+
+/* TOAST */
+.toast-container{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:9999;display:flex;flex-direction:column;gap:8px;align-items:center;}
+.toast{background:var(--card2);border:1px solid var(--border);color:var(--text);padding:12px 20px;border-radius:10px;font-size:13px;font-weight:600;box-shadow:0 8px 32px rgba(0,0,0,.4);display:flex;align-items:center;gap:10px;animation:toastIn .3s ease-out;white-space:nowrap;}
+@keyframes toastIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.toast.success{border-color:rgba(34,197,94,.3);}
+.toast.success i{color:var(--green);}
+.toast.error{border-color:rgba(239,68,68,.3);}
+.toast.error i{color:var(--red);}
+.toast.info i{color:var(--blue-bright);}
+
+/* SPIN */
+@keyframes spin{to{transform:rotate(360deg)}}
+.spin{animation:spin 1s linear infinite;display:inline-block;}
+
+/* RESPONSIVE */
+@media(max-width:640px){
+  .dash-grid{grid-template-columns:1fr;}
+  .login-card{flex-direction:column;max-width:400px;}
+  .login-left{width:100%;padding:28px;}
+  .unit-inputs{grid-template-columns:1fr;}
+  .shop-links{grid-template-columns:1fr;}
+}
+</style>
+</head>
+<body>
+<div x-data="motoApp()" x-init="init()" class="page">
+
+  <!-- TOASTS -->
+  <div class="toast-container">
+    <template x-for="t in toasts" :key="t.id">
+      <div class="toast" :class="t.type">
+        <i :class="t.type==='success'?'fas fa-check-circle':t.type==='error'?'fas fa-times-circle':'fas fa-info-circle'"></i>
+        <span x-text="t.msg"></span>
+      </div>
+    </template>
+  </div>
+
+  <!-- EDIT MODAL -->
+  <div class="modal-bg" x-show="editModal" x-cloak>
+    <div class="modal" @click.stop>
+      <h2>Edit Profile</h2>
+      <div class="form-group">
+        <label class="form-label">PROFILE PHOTO</label>
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
+          <img :src="profileImg" style="width:60px;height:60px;border-radius:50%;object-fit:cover;border:2px solid var(--border);">
+          <label style="background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:10px 16px;color:var(--text);font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;">
+            <i class="fas fa-camera"></i> Upload New Photo
+            <input type="file" accept="image/*" style="display:none" @change="onAvatarSelect($event)">
+          </label>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">DISPLAY NAME</label>
+        <div class="input-wrap"><i class="fas fa-user icon"></i><input class="form-input" x-model="editName" placeholder="Your name"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">PHONE NUMBER</label>
+        <div class="input-wrap"><i class="fas fa-phone icon"></i><input class="form-input" x-model="editPhone" placeholder="09xxxxxxxxx"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">MOTORCYCLE UNIT</label>
+        <div class="input-wrap"><i class="fas fa-motorcycle icon"></i><input class="form-input" x-model="editUnit" placeholder="e.g. Honda CBR 150R"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">YEAR MODEL</label>
+        <div class="input-wrap"><i class="fas fa-calendar icon"></i><input class="form-input" x-model="editYear" placeholder="e.g. 2022"></div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-cancel" @click="editModal=false">Cancel</button>
+        <button class="btn-save" @click="saveEdit()">Save Changes</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SPLASH -->
+  <div class="splash" x-show="page==='splash'" x-cloak @click="page='login'">
+    <div class="splash-inner">
+      <div class="splash-logo"><i class="fas fa-motorcycle"></i></div>
+      <h1>MOTO<span>MATCH</span></h1>
+      <p>FIND &bull; SCAN &bull; REUSE PARTS</p>
+      <div class="splash-cta">TAP TO START</div>
+    </div>
+  </div>
+
+  <!-- LOGIN -->
+  <div class="login-wrap" x-show="page==='login'" x-cloak>
+    <div class="login-card">
+      <div class="login-left">
+        <div class="login-logo"><i class="fas fa-motorcycle"></i></div>
+        <h1>MOTO<br><span>MATCH</span></h1>
+        <p>FIND &bull; SCAN &bull; REUSE</p>
+      </div>
+      <div class="login-right">
+        <h2>Welcome Back</h2>
+        <div class="form-group">
+          <label class="form-label">EMAIL ADDRESS</label>
+          <div class="input-wrap">
+            <i class="fas fa-envelope icon"></i>
+            <input class="form-input" type="email" x-model="loginEmail" placeholder="you@example.com" @keyup.enter="doLogin()">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">PASSWORD</label>
+          <div class="input-wrap">
+            <i class="fas fa-lock icon"></i>
+            <i :class="showPw?'fas fa-eye':'fas fa-eye-slash'" class="eye" @click="showPw=!showPw"></i>
+            <input class="form-input" :type="showPw?'text':'password'" x-model="loginPw" placeholder="••••••••" @keyup.enter="doLogin()">
+          </div>
+        </div>
+        <div x-show="loginErr" class="error-msg" x-text="loginErr"></div>
+        <div class="form-row">
+          <label><input type="checkbox"> Remember me</label>
+          <a href="#">Forgot password?</a>
+        </div>
+        <button class="btn btn-primary" @click="doLogin()">
+          <span x-show="!loginLoading">LOGIN</span>
+          <span x-show="loginLoading"><i class="fas fa-circle-notch spin"></i> Logging in...</span>
+        </button>
+        <div class="or-divider">— or —</div>
+        <button class="btn btn-secondary" @click="doSignUp()">CREATE ACCOUNT</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- APP -->
+  <div class="app-shell" x-show="page!=='splash'&&page!=='login'" x-cloak>
+
+    <!-- Sidebar -->
+    <div class="sidebar" :class="showMenu?'open':''">
+      <div class="sidebar-head">
+        <div class="sidebar-logo"><i class="fas fa-motorcycle"></i></div>
+        <div class="sidebar-brand"><h2>MOTO</h2><p>MATCH</p></div>
+      </div>
+      <nav class="sidebar-nav">
+        <button class="nav-btn" :class="page==='dashboard'?'active':''" @click="go('dashboard')"><i class="fas fa-home"></i> Dashboard</button>
+        <button class="nav-btn" :class="page==='scanner'?'active':''" @click="go('scanner')"><i class="fas fa-camera"></i> Scan Parts</button>
+        <button class="nav-btn" :class="page==='profile'?'active':''" @click="go('profile')"><i class="fas fa-user"></i> Profile</button>
+        <button class="nav-btn" :class="page==='settings'?'active':''" @click="go('settings')"><i class="fas fa-cog"></i> Settings</button>
+      </nav>
+      <div class="sidebar-foot">
+        <button class="btn-logout-side" @click="logout()"><i class="fas fa-sign-out-alt"></i> Logout</button>
+      </div>
+    </div>
+    <div class="sidebar-overlay" :class="showMenu?'open':''" @click="showMenu=false"></div>
+
+    <div class="main">
+      <div class="topbar">
+        <button class="btn-menu" @click="showMenu=!showMenu"><i class="fas fa-bars"></i></button>
+        <span class="page-title" x-text="pageTitle()"></span>
+        <div class="topbar-right">
+          <button class="topbar-btn" @click="go('settings')"><i class="fas fa-bell"></i></button>
+          <button class="topbar-btn" @click="go('profile')" style="overflow:hidden;padding:0;">
+            <img :src="profileImg" style="width:42px;height:42px;object-fit:cover;border-radius:10px;" alt="">
+          </button>
+        </div>
+      </div>
+
+      <div class="content">
+
+        <!-- DASHBOARD -->
+        <div x-show="page==='dashboard'">
+          <div class="unit-card">
+            <h3>CURRENT MOTORCYCLE UNIT</h3>
+            <div class="unit-inputs">
+              <input x-model="unitName" placeholder="Unit Name (e.g. Honda CBR 150R)" @change="save()">
+              <input x-model="yearModel" placeholder="Year Model (e.g. 2022)" @change="save()">
+            </div>
+          </div>
+          <div class="dash-grid">
+            <div class="bike-card">
+              <div class="bike-img" style="position:relative;">
+                <img :src="unitImg" alt="Motorcycle" style="width:100%;height:100%;object-fit:cover;">
+                <label style="position:absolute;bottom:10px;right:10px;width:44px;height:44px;background:var(--blue);border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#fff;font-size:18px;box-shadow:0 4px 12px rgba(37,99,235,.3);">
+                  <i class="fas fa-camera"></i>
+                  <input type="file" accept="image/*" style="display:none" @change="onUnitImageSelect($event)">
+                </label>
+              </div>
+              <div class="bike-info">
+                <div class="bike-name" x-text="unitName||'Your Motorcycle'"></div>
+                <div class="bike-sub" x-text="yearModel?yearModel+' EDITION':'Your Edition'"></div>
+                <div class="eco-badge">
+                  <div class="eco-icon"><i class="fas fa-leaf"></i></div>
+                  <div class="eco-text">
+                    <h4>Eco-Savings</h4>
+                    <p>Finding the right parts keeps your motor on the road and out of the landfill.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="right-panel">
+              <button class="scan-big-btn" @click="go('scanner')">
+                <i class="fas fa-camera"></i> Scan Part
+              </button>
+              <div class="recent-card">
+                <div class="recent-head">
+                  <span>RECENT SCANS</span>
+                  <a href="#" @click.prevent="go('scanner')">View all →</a>
+                </div>
+                <div x-show="scanHistory.length===0" style="padding:20px;font-size:13px;color:var(--muted);text-align:center;">No scans yet. Tap Scan a Part!</div>
+                <template x-for="item in scanHistory.slice().reverse().slice(0,4)" :key="item.id">
+                  <div class="recent-item" :class="item.today?'today':''">
+                    <div class="recent-item-left">
+                      <div class="recent-thumb"><i class="fas fa-cube"></i></div>
+                      <div>
+                        <div class="recent-title" x-text="item.partName"></div>
+                        <div class="recent-time" x-text="item.date"></div>
+                      </div>
+                    </div>
+                    <button class="recent-delete" @click="removeHistory(item.id)"><i class="fas fa-trash-alt"></i></button>
+                  </div>
+                </template>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SCANNER -->
+        <div x-show="page==='scanner'">
+          <div class="scanner-wrap">
+            <div class="cam-box">
+              <div class="scan-corner tl"></div>
+              <div class="scan-corner br"></div>
+              <div class="scanning-line" x-show="scanStatus==='scanning'"></div>
+              <video class="preview" x-show="cameraActive" id="cameraVideo" style="width:100%;height:100%;object-fit:cover;" playsinline autoplay></video>
+              <img class="preview" x-show="previewUrl&&!cameraActive" :src="previewUrl" alt="Part preview">
+              <div class="cam-placeholder" x-show="!previewUrl&&!cameraActive">
+                <i class="fas fa-camera"></i>
+                <p>Use your camera or upload a photo of your part</p>
+              </div>
+            </div>
+
+            <div class="scan-actions">
+              <div style="display:flex;gap:10px;margin-bottom:12px;">
+                <button class="upload-label" style="flex:1;margin:0;" @click="startCamera()" x-show="!cameraActive">
+                  <i class="fas fa-camera"></i> Start Camera
+                </button>
+                <button class="upload-label" style="flex:1;margin:0;background:rgba(239,68,68,.15);color:#f87171;" @click="stopCamera()" x-show="cameraActive">
+                  <i class="fas fa-times-circle"></i> Stop Camera
+                </button>
+                <label class="upload-label" style="flex:1;margin:0;">
+                  <i class="fas fa-image"></i> Upload Photo
+                  <input type="file" accept="image/*" style="display:none" @change="onFileSelect($event)">
+                </label>
+              </div>
+
+              <button class="btn-scan" @click="captureFromCamera()" :disabled="!cameraActive||scanStatus==='scanning'" x-show="cameraActive">
+                <template x-if="scanStatus!=='scanning'"><span><i class="fas fa-camera"></i> CAPTURE & SCAN</span></template>
+                <template x-if="scanStatus==='scanning'"><span><i class="fas fa-circle-notch spin"></i> Analyzing...</span></template>
+              </button>
+
+              <button class="btn-scan" @click="doScan()" :disabled="!previewUrl||cameraActive||scanStatus==='scanning'" x-show="!cameraActive">
+                <template x-if="scanStatus!=='scanning'"><span><i class="fas fa-search"></i> IDENTIFY PART WITH AI</span></template>
+                <template x-if="scanStatus==='scanning'"><span><i class="fas fa-circle-notch spin"></i> Analyzing with AI...</span></template>
+              </button>
+
+              <div x-show="scanStatus==='found'" class="result-card found">
+                <div class="result-icon"><i class="fas fa-check-circle"></i></div>
+                <div class="result-body">
+                  <h4 x-text="scanResult.partName||'Part Identified!'"></h4>
+                  <p x-text="scanResult.description"></p>
+                </div>
+              </div>
+
+              <div x-show="scanStatus==='fail'" class="result-card fail">
+                <div class="result-icon"><i class="fas fa-times-circle"></i></div>
+                <div class="result-body">
+                  <h4>No Match Found</h4>
+                  <p>Try a clearer, well-lit photo. Make sure the part fills the frame.</p>
+                </div>
+              </div>
+
+              <div x-show="scanStatus==='improper'" class="result-card fail">
+                <div class="result-icon"><i class="fas fa-exclamation-triangle"></i></div>
+                <div class="result-body">
+                  <h4>Photo Quality Issue</h4>
+                  <p x-text="scanResult.description"></p>
+                </div>
+              </div>
+
+              <div x-show="scanStatus==='found'" class="shop-links">
+                <a :href="scanResult.shopeeUrl" target="_blank" class="shop-btn shop-shopee">
+                  <i class="fas fa-shopping-bag"></i> SHOPEE
+                </a>
+                <a :href="scanResult.lazadaUrl" target="_blank" class="shop-btn shop-lazada">
+                  <i class="fas fa-shopping-cart"></i> LAZADA
+                </a>
+              </div>
+
+              <button x-show="scanStatus==='found'||scanStatus==='fail'||scanStatus==='improper'" @click="resetScan()" class="btn-reset">
+                <i class="fas fa-redo"></i> Scan Another Part
+              </button>
+            </div>
+
+            <!-- History -->
+            <div class="scan-history" x-show="scanHistory.length>0">
+              <h3>SCAN HISTORY (<span x-text="scanHistory.length"></span>)</h3>
+              <template x-for="item in scanHistory.slice().reverse()" :key="item.id">
+                <div class="history-item">
+                  <template x-if="item.imageUrl">
+                    <img class="history-thumb" :src="item.imageUrl" alt="">
+                  </template>
+                  <template x-if="!item.imageUrl">
+                    <div class="history-thumb" style="display:flex;align-items:center;justify-content:center;background:var(--card2);">
+                      <i class="fas fa-image" style="color:var(--muted)"></i>
+                    </div>
+                  </template>
+                  <div class="history-info">
+                    <div class="part-name" x-text="item.partName"></div>
+                    <div class="part-time" x-text="item.date"></div>
+                    <div class="history-links" x-show="item.status==='found'">
+                      <a :href="item.shopeeUrl" target="_blank" class="hl-shopee">Shopee</a>
+                      <a :href="item.lazadaUrl" target="_blank" class="hl-lazada">Lazada</a>
+                    </div>
+                  </div>
+                  <span class="status-badge" :class="item.status==='found'?'status-found':'status-fail'" x-text="item.status==='found'?'Found':'Not Found'"></span>
+                </div>
+              </template>
+            </div>
+          </div>
+        </div>
+
+        <!-- PROFILE -->
+        <div x-show="page==='profile'">
+          <div class="profile-header">
+            <div class="profile-avatar-wrap">
+              <img class="profile-avatar" :src="profileImg" alt="Profile">
+            </div>
+            <div class="profile-details">
+              <div class="profile-name" x-text="userName"></div>
+              <div class="profile-meta" x-text="userEmail"></div>
+              <div class="profile-meta" x-text="userPhone||'No phone set'"></div>
+              <div class="profile-chips">
+                <span class="chip" x-text="unitName||'Rider 150 fi'"></span>
+                <span class="chip" x-text="yearModel||'2026'"></span>
+              </div>
+            </div>
+          </div>
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px;margin-bottom:24px;overflow:hidden;">
+            <h3 style="font-size:16px;letter-spacing:.08em;color:var(--blue-bright);margin-bottom:14px;"><i class="fas fa-motorcycle"></i> Motorcycle Unit</h3>
+            <div style="position:relative;height:200px;background:var(--card2);border-radius:12px;overflow:hidden;margin-bottom:12px;">
+              <img :src="unitImg" alt="Motorcycle" style="width:100%;height:100%;object-fit:cover;">
+              <label style="position:absolute;bottom:8px;right:8px;width:40px;height:40px;background:var(--blue);border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#fff;font-size:16px;box-shadow:0 4px 12px rgba(37,99,235,.3);">
+                <i class="fas fa-camera"></i>
+                <input type="file" accept="image/*" style="display:none" @change="onUnitImageSelect($event)">
+              </label>
+            </div>
+            <div style="font-size:14px;font-weight:700;color:#fff;margin-bottom:4px;" x-text="unitName||'Your Motorcycle'"></div>
+            <div style="font-size:12px;color:var(--muted);" x-text="yearModel?yearModel+' Model':'Year not set'"></div>
+          </div>
+          <div class="profile-menu">
+            <div class="profile-menu-item" @click="openEdit()">
+              <span><i class="fas fa-user"></i> Edit Profile</span><i class="fas fa-chevron-right"></i>
+            </div>
+            <div class="profile-menu-item" @click="go('dashboard')">
+              <span><i class="fas fa-motorcycle"></i> Edit Unit / Year Model</span><i class="fas fa-chevron-right"></i>
+            </div>
+            <div class="profile-menu-item" @click="go('scanner')">
+              <span><i class="fas fa-cart-arrow-down"></i> Add Part Need / To Buy</span><i class="fas fa-chevron-right"></i>
+            </div>
+            <div class="profile-menu-item" @click="go('settings')">
+              <span><i class="fas fa-wrench"></i> List Broken Parts</span><i class="fas fa-chevron-right"></i>
+            </div>
+          </div>
+          <button class="btn-logout-big" @click="logout()">LOG OUT</button>
+        </div>
+
+        <!-- SETTINGS -->
+        <div x-show="page==='settings'">
+          <div class="settings-section">
+            <h3>NOTIFICATIONS</h3>
+            <div class="toggle-row">
+              <div><div class="toggle-label">Push Notifications</div><div class="toggle-sub">Alerts for new part matches</div></div>
+              <button class="toggle-btn" :class="notif?'on':''" @click="notif=!notif;save()"></button>
+            </div>
+            <div class="toggle-row">
+              <div><div class="toggle-label">Email Notifications</div><div class="toggle-sub">Scan summaries by email</div></div>
+              <button class="toggle-btn" :class="emailNotif?'on':''" @click="emailNotif=!emailNotif;save()"></button>
+            </div>
+            <div class="toggle-row">
+              <div><div class="toggle-label">Price Drop Alerts</div><div class="toggle-sub">Notified when parts go on sale</div></div>
+              <button class="toggle-btn" :class="priceAlert?'on':''" @click="priceAlert=!priceAlert;save()"></button>
+            </div>
+          </div>
+          <div class="settings-section">
+            <h3>ACCOUNT</h3>
+            <div class="form-group" style="margin-bottom:12px">
+              <label class="form-label">NEW PASSWORD</label>
+              <div class="input-wrap">
+                <i class="fas fa-lock icon"></i>
+                <i :class="showPw?'fas fa-eye':'fas fa-eye-slash'" class="eye" @click="showPw=!showPw"></i>
+                <input class="form-input" :type="showPw?'text':'password'" x-model="newPw" placeholder="Enter new password">
+              </div>
+            </div>
+            <button class="btn btn-primary" style="max-width:200px" @click="changePw()">CHANGE PASSWORD</button>
+          </div>
+          <div class="settings-section">
+            <h3>DATA</h3>
+            <button @click="clearHistory()" style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.25);border-radius:10px;padding:12px 20px;color:#f87171;font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;cursor:pointer;width:100%;">
+              <i class="fas fa-trash-alt"></i> CLEAR SCAN HISTORY
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// Firebase Configuration
+const firebaseConfig = {
+  apiKey: "AIzaSyCK3X24HuDH1IggdENSDADU0ubrBsnk_4s",
+  authDomain: "matchcodemoto.firebaseapp.com",
+  projectId: "matchcodemoto",
+  storageBucket: "matchcodemoto.firebasestorage.app",
+  messagingSenderId: "864873199872",
+  appId: "1:864873199872:web:4e18c4a1526b2ed5bcdbe5",
+  measurementId: "G-MLNZV08JRR"
+};
+
+// Gemini API Key (replace with your actual Google Gemini key)
+const geminiApiKey = 'AIzaSyAKAttJkgl2paayWl8zH3GVJfxpFSZsrrY';
+
+// Initialize Firebase when SDK is ready
+let auth, db, storage;
+function initFirebase(){
+  if(typeof firebase==='undefined'){
+    console.error('Firebase SDK not loaded yet');
+    return false;
+  }
+  try{
+    if(!firebase.apps.length){
+      firebase.initializeApp(firebaseConfig);
+    }
+    auth=firebase.auth();
+    db=firebase.firestore();
+    storage=firebase.storage();
+    console.log('Firebase initialized successfully');
+    return true;
+  }catch(err){
+    console.error('Firebase initialization failed:',err);
+    return false;
+  }
+}
+
+// Try to initialize when script loads
+if(document.readyState==='loading'){
+  document.addEventListener('DOMContentLoaded',initFirebase);
+}else{
+  setTimeout(initFirebase,100);
+}
+
+function motoApp(){
+  return {
+    page:'dashboard', showMenu:false, toasts:[],
+    loginEmail:'', loginPw:'', showPw:false, loginErr:'', loginLoading:false,
+    userName:'Rider', userEmail:'', userPhone:'', profileImg:'https://i.pravatar.cc/150?u=motomatch',
+    unitName:'', yearModel:'', unitImg:'https://images.unsplash.com/photo-1558981403-c5f9899a28bc?auto=format&fit=crop&q=80&w=600',
+    editModal:false, editName:'', editPhone:'', editUnit:'', editYear:'', editAvatarFile:null, tempImg:null,
+    previewUrl:'', previewBase64:'', scanStatus:'idle', previewMimeType:'image/jpeg',
+    cameraActive:false, cameraStream:null,
+    scanResult:{partName:'',description:'',shopeeUrl:'',lazadaUrl:''},
+    scanHistory:[],
+    notif:true, emailNotif:true, priceAlert:false, newPw:'', user:null,
+
+    init(){
+      if(!initFirebase()){
+        console.error('Firebase initialization failed');
+        setTimeout(()=>this.init(),500);
+        return;
+      }
+      auth.onAuthStateChanged(async(user)=>{
+        if(user){
+          this.user=user;
+          this.userEmail=user.email;
+          try{
+            const userDoc=await db.collection('users').doc(user.uid).get();
+            if(userDoc.exists){
+              const data=userDoc.data();
+              Object.assign(this,{
+                userName:data.userName||'Rider',
+                userPhone:data.userPhone||'',
+                profileImg:data.profileImg||this.profileImg,
+                unitName:data.unitName||'',
+                yearModel:data.yearModel||'',
+                unitImg:data.unitImg||this.unitImg,
+                notif:data.notif!==undefined?data.notif:true,
+                emailNotif:data.emailNotif!==undefined?data.emailNotif:true,
+                priceAlert:data.priceAlert||false,
+                scanHistory:data.scanHistory||[]
+              });
+            }
+            this.page='dashboard';
+          }catch(e){
+            console.error('Error loading user data:',e);
+            this.page='dashboard';
+          }
+        }else{
+          this.page='login';
+        }
+      });
+    },
+
+    save(){
+      if(!this.user||!db)return;
+      db.collection('users').doc(this.user.uid).set({
+        userName:this.userName,
+        userPhone:this.userPhone,
+        profileImg:this.profileImg,
+        unitName:this.unitName,
+        yearModel:this.yearModel,
+        unitImg:this.unitImg,
+        notif:this.notif,
+        emailNotif:this.emailNotif,
+        priceAlert:this.priceAlert,
+        scanHistory:this.scanHistory,
+        lastUpdated:new Date()
+      }).catch(e=>console.error('Save failed:',e));
+    },
+
+    go(p){this.page=p;this.showMenu=false;},
+    pageTitle(){return {dashboard:'Dashboard',scanner:'Scan Parts',profile:'Profile',settings:'Settings'}[this.page]||'';},
+    removeHistory(id){this.scanHistory=this.scanHistory.filter(item=>item.id!==id);this.save();},
+
+    toast(msg,type='info'){
+      const id=Date.now();
+      this.toasts.push({id,msg,type});
+      setTimeout(()=>{this.toasts=this.toasts.filter(t=>t.id!==id);},3500);
+    },
+
+    doLogin(){
+      if(!auth){this.loginErr='Firebase not ready';return;}
+      if(!this.loginEmail||!this.loginPw){this.loginErr='Please enter email and password.';return;}
+      this.loginLoading=true;
+      auth.signInWithEmailAndPassword(this.loginEmail,this.loginPw)
+        .then(()=>{
+          this.loginErr='';
+          this.loginLoading=false;
+          this.toast('Welcome back!','success');
+        })
+        .catch(err=>{
+          this.loginErr=err.message||'Login failed';
+          this.loginLoading=false;
+        });
+    },
+
+    doSignUp(){
+      if(!auth){this.loginErr='Firebase not ready';return;}
+      if(!this.loginEmail||!this.loginPw){this.loginErr='Please enter email and password.';return;}
+      if(this.loginPw.length<6){this.loginErr='Password must be at least 6 characters.';return;}
+      this.loginLoading=true;
+      auth.createUserWithEmailAndPassword(this.loginEmail,this.loginPw)
+        .then(()=>{
+          const uid=auth.currentUser.uid;
+          const displayName=this.loginEmail.split('@')[0].replace(/[._]/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
+          this.userName=displayName;
+          return db.collection('users').doc(uid).set({
+            userName:displayName,
+            userEmail:this.loginEmail,
+            userPhone:'',
+            profileImg:this.profileImg,
+            unitName:'',
+            yearModel:'',
+            notif:true,
+            emailNotif:true,
+            priceAlert:false,
+            scanHistory:[],
+            createdAt:new Date()
+          });
+        })
+        .then(()=>{
+          this.loginErr='';
+          this.loginLoading=false;
+          this.toast('Account created! Welcome to MotoMatch.','success');
+        })
+        .catch(err=>{
+          this.loginErr=err.message||'Signup failed';
+          this.loginLoading=false;
+        });
+    },
+
+    logout(){
+      if(!auth){this.page='login';return;}
+      auth.signOut().then(()=>{
+        this.page='login';
+        this.loginPw='';
+        this.loginErr='';
+        this.showMenu=false;
+        this.user=null;
+        this.toast('Logged out successfully','info');
+      }).catch(err=>console.error('Logout failed:',err));
+    },
+
+    onAvatarSelect(e){
+      const f=e.target.files[0];if(!f)return;
+      this.editAvatarFile=f;
+      this.tempImg=URL.createObjectURL(f);
+      this.profileImg=this.tempImg;
+    },
+
+    uploadAvatar(file){
+      return new Promise((resolve,reject)=>{
+        if(!this.user||!storage){reject('No user or storage');return;}
+        const storageRef=storage.ref(`users/${this.user.uid}/avatar`);
+        storageRef.put(file).then(snapshot=>{
+          return snapshot.ref.getDownloadURL();
+        }).then(url=>{
+          this.profileImg=url;
+          if(this.tempImg) URL.revokeObjectURL(this.tempImg);
+          this.tempImg=null;
+          this.save();
+          resolve();
+        }).catch(err=>{
+          console.error('Upload failed:',err);
+          this.toast('Photo upload failed','error');
+          reject(err);
+        });
+      });
+    },
+
+    onUnitImageSelect(e){
+      const f=e.target.files[0];if(!f||!this.user||!storage)return;
+      const storageRef=storage.ref(`users/${this.user.uid}/unitImg`);
+      storageRef.put(f).then(snapshot=>{
+        return snapshot.ref.getDownloadURL();
+      }).then(url=>{
+        this.unitImg=url;
+        this.save();
+        this.toast('Motorcycle photo updated','success');
+      }).catch(err=>{
+        console.error('Upload failed:',err);
+        this.toast('Photo upload failed','error');
+      });
+    },
+
+    openEdit(){
+      this.editName=this.userName;this.editPhone=this.userPhone;
+      this.editUnit=this.unitName;this.editYear=this.yearModel;this.editAvatarFile=null;this.editModal=true;
+    },
+
+    saveEdit(){
+      if(this.editName)this.userName=this.editName;
+      this.userPhone=this.editPhone;this.unitName=this.editUnit;this.yearModel=this.editYear;
+      this.save();
+      if(this.editAvatarFile){
+        this.uploadAvatar(this.editAvatarFile).then(()=>{
+          this.editModal=false;this.toast('Profile saved!','success');
+        }).catch(()=>{
+          this.editModal=false;
+        });
+      }else{
+        this.editModal=false;this.toast('Profile saved!','success');
+      }
+    },
+
+    changePw(){
+      if(!this.newPw||this.newPw.length<6){this.toast('Password must be at least 6 characters.','error');return;}
+      this.newPw='';this.toast('Password changed successfully!','success');
+    },
+
+    clearHistory(){
+      if(!confirm('Clear all scan history? This cannot be undone.'))return;
+      this.scanHistory=[];this.save();this.toast('Scan history cleared.','info');
+    },
+
+    onFileSelect(e){
+      const f=e.target.files[0];if(!f)return;
+      this.previewMimeType = f.type || 'image/jpeg';
+      const r=new FileReader();
+      r.onload=ev=>{
+        this.previewUrl=ev.target.result;
+        this.previewBase64=ev.target.result.split(',')[1];
+        this.scanStatus='idle';this.scanResult={};
+      };
+      r.readAsDataURL(f);
+    },
+
+    resetScan(){
+      this.scanStatus='idle';this.previewUrl='';this.previewBase64='';this.scanResult={};
+    },
+
+    startCamera(){
+      const constraints = { video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } } };
+      navigator.mediaDevices.getUserMedia(constraints)
+        .then(stream => {
+          this.cameraStream = stream;
+          this.cameraActive = true;
+          this.$nextTick(() => {
+            const video = document.getElementById('cameraVideo');
+            if (video) {
+              video.srcObject = stream;
+              video.play().catch(e => console.error('Play error:', e));
+            }
+          });
+          this.toast('Camera started', 'info');
+        })
+        .catch(err => {
+          console.error('Camera error:', err);
+          this.toast('Could not access camera. Check permissions.', 'error');
+        });
+    },
+
+    stopCamera(){
+      if (this.cameraStream) {
+        this.cameraStream.getTracks().forEach(track => track.stop());
+        this.cameraStream = null;
+      }
+      this.cameraActive = false;
+    },
+
+    captureFromCamera(){
+      const video = document.getElementById('cameraVideo');
+      if (!video) return;
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0);
+      this.previewUrl = canvas.toDataURL('image/jpeg');
+      this.previewBase64 = this.previewUrl.split(',')[1];
+      this.previewMimeType = 'image/jpeg';
+      this.scanStatus = 'idle';
+      this.scanResult = {};
+      this.stopCamera();
+      this.toast('Photo captured. Ready to scan.', 'success');
+    },
+
+    async doScan(){
+      if(!this.previewBase64){this.toast('Please upload a photo first.','error');return;}
+      if(!geminiApiKey || geminiApiKey==='YOUR_GEMINI_API_KEY'){
+        this.scanStatus='fail';
+        this.toast('Gemini API key is not configured. Update the code with your key.','error');
+        return;
+      }
+      this.scanStatus='scanning';
+      const moto=(this.unitName&&this.yearModel)?`The user's motorcycle is a ${this.unitName} ${this.yearModel}.`:'Motorcycle model not specified.';
+      const prompt=`You are an AI Mechanic expert in motorcycle parts for the Philippine market.\n${moto}\nAnalyze this image for quality and part identification. Respond ONLY with valid JSON (no markdown) in this exact format:\n{"quality":"good" or "bad","found":true/false,"partName":"short part name","description":"1-2 sentence description","shopeeQuery":"search query for Shopee PH","lazadaQuery":"search query for Lazada PH"}\n- Set quality to "bad" if the image is blurry, dark, or doesn't show a clear motorcycle part.\n- If quality is "bad", set found to false and description to "Photo quality is poor. Please take a clearer, well-lit photo of the motorcycle part."\n- If quality is "good" and you can identify the part, set found to true with details.\n- If you are reasonably sure of the part name, return found:true and include the part name.
+- Use the motorcycle model for context-aware identification.`;
+      try{
+        const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent`,{
+          method:'POST',
+          headers:{
+            'Content-Type':'application/json',
+            'X-goog-api-key':geminiApiKey
+          },
+          body:JSON.stringify({
+            contents:[{
+              parts:[
+                {text:prompt},
+                {inline_data:{mime_type:this.previewMimeType||'image/jpeg',data:this.previewBase64}}
+              ]
+            }]
+          })
+        });
+        if(!res.ok){
+          const errText = await res.text().catch(()=>res.statusText);
+          throw new Error(`Gemini API ${res.status}: ${errText}`);
+        }
+        const data=await res.json();
+        console.debug('Gemini raw response', data);
+        const raw=data?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if(!raw) throw new Error('Unexpected Gemini response format');
+        const jsonText = raw.replace(/```json|```/g,'').trim();
+        const p=JSON.parse(jsonText);
+        console.debug('Parsed Gemini payload', p);
+        const quality = p.quality || 'good';
+        const found = p.found === true || (!!p.partName && p.partName.toString().trim() !== '' && p.found !== false);
+        if(quality==='bad'){
+          this.scanStatus='improper';
+          this.scanResult={partName:'Poor Quality Photo',description:p.description};
+          this.toast('Photo quality is poor. Please retake.','error');
+        }else if(found){
+          this.scanResult={
+            partName:p.partName||'Identified Part',description:p.description||'Part appears to match this description.',
+            shopeeUrl:'https://shopee.ph/search?keyword='+encodeURIComponent(p.shopeeQuery||p.partName||''),
+            lazadaUrl:'https://www.lazada.com.ph/catalog/?q='+encodeURIComponent(p.lazadaQuery||p.partName||'')
+          };
+          this.scanStatus='found';
+          this.scanHistory.push({
+            id:Date.now(),partName:p.partName,
+            imageUrl:this.previewUrl,
+            date:new Date().toLocaleDateString('en-PH',{month:'short',day:'numeric',year:'numeric'}),
+            today:true,status:'found',
+            shopeeUrl:this.scanResult.shopeeUrl,lazadaUrl:this.scanResult.lazadaUrl
+          });
+          this.save();
+          this.toast('Part identified: '+p.partName,'success');
+        }else{
+          this.scanStatus='fail';
+          this.scanHistory.push({
+            id:Date.now(),partName:'Unknown Part',
+            imageUrl:this.previewUrl,
+            date:new Date().toLocaleDateString('en-PH',{month:'short',day:'numeric',year:'numeric'}),
+            today:true,status:'fail',shopeeUrl:'',lazadaUrl:''
+          });
+          this.save();
+          this.toast('Could not identify part. Try a clearer photo.','error');
+        }
+      }catch(err){
+        console.error(err);
+        this.scanStatus='fail';
+        this.toast('Scan failed. Check connection or try again.','error');
+      }
+    }
+  };
+}
+</script>
+</body>
+</html>
