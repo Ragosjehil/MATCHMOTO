@@ -1,4 +1,9 @@
 module.exports = async (req, res) => {
+    // 1. I-check kung POST ang request
+    if (req.method !== 'POST') {
+        return res.status(405).json({ error: "Method not allowed" });
+    }
+
     const apiKey = process.env.GEMINI_API_KEY;
     const { prompt, image } = req.body;
 
@@ -9,7 +14,7 @@ module.exports = async (req, res) => {
             body: JSON.stringify({
                 contents: [{ 
                     parts: [
-                        { text: prompt },
+                        { text: prompt || "Identify this motorcycle part." },
                         ...(image ? [{ inline_data: { mime_type: "image/jpeg", data: image } }] : [])
                     ] 
                 }]
