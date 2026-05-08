@@ -214,6 +214,9 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 
 /* MODAL */
 .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px;}
+.avatar-upload-wrap{display:flex;align-items:center;gap:12px;margin-bottom:20px;}
+.avatar-upload-img{width:60px;height:60px;border-radius:50%;object-fit:cover;border:2px solid var(--border);}
+.avatar-upload-label{background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:10px 16px;color:var(--text);font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;}
 .modal{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:28px;width:100%;max-width:460px;}
 .modal h2{font-size:22px;margin-bottom:20px;color:#fff;}
 .modal-actions{display:flex;gap:10px;margin-top:20px;}
@@ -257,15 +260,14 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
     </template>
   </div>
 
-  <!-- EDIT MODAL -->
   <div class="modal-bg" x-show="editModal" x-cloak>
     <div class="modal" @click.stop>
       <h2>Edit Profile</h2>
       <div class="form-group">
         <label class="form-label">PROFILE PHOTO</label>
-        <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-          <img :src="profileImg" style="width:60px;height:60px;border-radius:50%;object-fit:cover;border:2px solid var(--border);">
-          <label style="background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:10px 16px;color:var(--text);font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;">
+        <div class="avatar-upload-wrap">
+          <img :src="profileImg" alt="Profile photo" class="avatar-upload-img">
+          <label class="avatar-upload-label">
             <i class="fas fa-camera"></i> Upload New Photo
             <input type="file" accept="image/*" style="display:none" @change="onAvatarSelect($event)">
           </label>
@@ -641,8 +643,7 @@ const firebaseConfig = {
   measurementId: "G-MLNZV08JRR"
 };
 
-// Gemini API Key (replace with your actual Google Gemini key)
-const geminiApiKey = 'AIzaSyAKAttJkgl2paayWl8zH3GVJfxpFSZsrrY';
+const myKey = process.env.GEMINI_API_KEY; 
 
 // Initialize Firebase when SDK is ready
 let auth, db, storage;
