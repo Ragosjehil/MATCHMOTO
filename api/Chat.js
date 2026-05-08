@@ -1,8 +1,5 @@
-// Gagamit tayo ng module.exports imbes na export default
 module.exports = async (req, res) => {
     const apiKey = process.env.GEMINI_API_KEY;
-    
-    // Kunin ang prompt at image mula sa request body
     const { prompt, image } = req.body;
 
     try {
@@ -13,7 +10,6 @@ module.exports = async (req, res) => {
                 contents: [{ 
                     parts: [
                         { text: prompt },
-                        // Kung may image na pinasa (Base64), isama natin dito
                         ...(image ? [{ inline_data: { mime_type: "image/jpeg", data: image } }] : [])
                     ] 
                 }]
