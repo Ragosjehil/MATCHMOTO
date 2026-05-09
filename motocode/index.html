@@ -637,15 +637,12 @@ const firebaseConfig = {
   apiKey: "AIzaSyCK3X24HuDH1IggdENSDADU0ubrBsnk_4s",
   authDomain: "matchcodemoto.firebaseapp.com",
   projectId: "matchcodemoto",
-  storageBucket: "matchcodemoto.firebasestorage.app",
+  storageBucket: "matchcodemoto.appspot.com",
   messagingSenderId: "864873199872",
   appId: "1:864873199872:web:4e18c4a1526b2ed5bcdbe5",
   measurementId: "G-MLNZV08JRR"
 };
 
-
-
-// Initialize Firebase when SDK is ready
 let auth, db, storage;
 function initFirebase(){
   if(typeof firebase==='undefined'){
@@ -656,9 +653,9 @@ function initFirebase(){
     if(!firebase.apps.length){
       firebase.initializeApp(firebaseConfig);
     }
-    //auth=firebase.auth();
-    //db=firebase.firestore();
-    //storage=firebase.storage();
+    auth=firebase.auth();
+    db=firebase.firestore();
+    storage=firebase.storage();
     console.log('Firebase initialized successfully');
     return true;
   }catch(err){
@@ -666,13 +663,6 @@ function initFirebase(){
     return false;
   }
 }
-
-// Try to initialize when script loads
-//if(document.readyState==='loading'){
- // document.addEventListener('DOMContentLoaded',initFirebase);
-//}else{
- // setTimeout(initFirebase,100);
-//}
 
 function motoApp(){
   return {
@@ -688,10 +678,23 @@ function motoApp(){
     notif:true, emailNotif:true, priceAlert:false, newPw:'', user:null,
 
     init(){
-      if(!initFirebase()){
-        console.error('Firebase initialization failed');
-        setTimeout(()=>this.init(),500);
+      if(typeof firebase==='undefined'){
+        setTimeout(()=>this.init(),300);
         return;
+      }
+      if(!initFirebase()){
+        setTimeout(()=>this.init(),300);
+        return;
+      }
+      // Test storage connection
+      if(storage){
+        try{
+          const testRef=storage.ref();
+          console.log('Storage bucket:',testRef.bucket);
+          console.log('Firebase Storage ready: true');
+        }catch(e){console.error('Storage test failed:',e);}
+      }else{
+        console.error('Firebase Storage NOT initialized');
       }
       auth.onAuthStateChanged(async(user)=>{
         if(user){
@@ -739,7 +742,7 @@ function motoApp(){
         priceAlert:this.priceAlert,
         scanHistory:this.scanHistory,
         lastUpdated:new Date()
-      }).catch(e=>console.error('Save failed:',e));
+      },{merge:true}).catch(e=>console.error('Save failed:',e));
     },
 
     go(p){this.page=p;this.showMenu=false;},
@@ -757,15 +760,8 @@ function motoApp(){
       if(!this.loginEmail||!this.loginPw){this.loginErr='Please enter email and password.';return;}
       this.loginLoading=true;
       auth.signInWithEmailAndPassword(this.loginEmail,this.loginPw)
-        .then(()=>{
-          this.loginErr='';
-          this.loginLoading=false;
-          this.toast('Welcome back!','success');
-        })
-        .catch(err=>{
-          this.loginErr=err.message||'Login failed';
-          this.loginLoading=false;
-        });
+        .then(()=>{this.loginErr='';this.loginLoading=false;this.toast('Welcome back!','success');})
+        .catch(err=>{this.loginErr=err.message||'Login failed';this.loginLoading=false;});
     },
 
     doSignUp(){
@@ -779,82 +775,83 @@ function motoApp(){
           const displayName=this.loginEmail.split('@')[0].replace(/[._]/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
           this.userName=displayName;
           return db.collection('users').doc(uid).set({
-            userName:displayName,
-            userEmail:this.loginEmail,
-            userPhone:'',
-            profileImg:this.profileImg,
-            unitName:'',
-            yearModel:'',
-            notif:true,
-            emailNotif:true,
-            priceAlert:false,
-            scanHistory:[],
-            createdAt:new Date()
+            userName:displayName,userEmail:this.loginEmail,userPhone:'',
+            profileImg:this.profileImg,unitName:'',yearModel:'',
+            notif:true,emailNotif:true,priceAlert:false,scanHistory:[],createdAt:new Date()
           });
         })
-        .then(()=>{
-          this.loginErr='';
-          this.loginLoading=false;
-          this.toast('Account created! Welcome to MotoMatch.','success');
-        })
-        .catch(err=>{
-          this.loginErr=err.message||'Signup failed';
-          this.loginLoading=false;
-        });
+        .then(()=>{this.loginErr='';this.loginLoading=false;this.toast('Account created! Welcome to MotoMatch.','success');})
+        .catch(err=>{this.loginErr=err.message||'Signup failed';this.loginLoading=false;});
     },
 
     logout(){
       if(!auth){this.page='login';return;}
       auth.signOut().then(()=>{
-        this.page='login';
-        this.loginPw='';
-        this.loginErr='';
-        this.showMenu=false;
-        this.user=null;
+        this.page='login';this.loginPw='';this.loginErr='';this.showMenu=false;this.user=null;
         this.toast('Logged out successfully','info');
       }).catch(err=>console.error('Logout failed:',err));
     },
 
     onAvatarSelect(e){
       const f=e.target.files[0];if(!f)return;
+      if(f.size>5*1024*1024){this.toast('Image too large. Max 5MB.','error');return;}
       this.editAvatarFile=f;
-      this.tempImg=URL.createObjectURL(f);
-      this.profileImg=this.tempImg;
+      const reader=new FileReader();
+      reader.onload=ev=>{this.tempImg=ev.target.result;this.profileImg=ev.target.result;};
+      reader.readAsDataURL(f);
     },
 
     uploadAvatar(file){
       return new Promise((resolve,reject)=>{
-        if(!this.user||!storage){reject('No user or storage');return;}
-        const storageRef=storage.ref(`users/${this.user.uid}/avatar`);
-        storageRef.put(file).then(snapshot=>{
-          return snapshot.ref.getDownloadURL();
-        }).then(url=>{
-          this.profileImg=url;
-          if(this.tempImg) URL.revokeObjectURL(this.tempImg);
-          this.tempImg=null;
-          this.save();
-          resolve();
-        }).catch(err=>{
-          console.error('Upload failed:',err);
-          this.toast('Photo upload failed','error');
-          reject(err);
-        });
+        if(!this.user){this.toast('Not logged in.','error');reject('No user');return;}
+        if(!storage){this.toast('Storage not ready. Try again.','error');reject('No storage');return;}
+        this.toast('Uploading profile photo...','info');
+        const storageRef=storage.ref().child('users/'+this.user.uid+'/avatar_'+Date.now());
+        const uploadTask=storageRef.put(file);
+        uploadTask.on('state_changed',
+          null,
+          err=>{
+            console.error('Avatar upload error:',err);
+            const msg=err.code==='storage/unauthorized'?'Upload blocked — check Firebase Storage rules.':err.message||'Upload failed';
+            this.toast(msg,'error');reject(err);
+          },
+          ()=>{
+            uploadTask.snapshot.ref.getDownloadURL().then(url=>{
+              this.profileImg=url;
+              this.tempImg=null;
+              this.save();
+              resolve(url);
+            }).catch(err=>{this.toast('Could not get photo URL','error');reject(err);});
+          }
+        );
       });
     },
 
     onUnitImageSelect(e){
-      const f=e.target.files[0];if(!f||!this.user||!storage)return;
-      const storageRef=storage.ref(`users/${this.user.uid}/unitImg`);
-      storageRef.put(f).then(snapshot=>{
-        return snapshot.ref.getDownloadURL();
-      }).then(url=>{
-        this.unitImg=url;
-        this.save();
-        this.toast('Motorcycle photo updated','success');
-      }).catch(err=>{
-        console.error('Upload failed:',err);
-        this.toast('Photo upload failed','error');
-      });
+      const f=e.target.files[0];if(!f)return;
+      if(f.size>5*1024*1024){this.toast('Image too large. Max 5MB.','error');return;}
+      if(!this.user){this.toast('Not logged in.','error');return;}
+      if(!storage){this.toast('Storage not ready. Try again.','error');return;}
+      // Show preview immediately while uploading
+      const reader=new FileReader();
+      reader.onload=ev=>{this.unitImg=ev.target.result;};
+      reader.readAsDataURL(f);
+      this.toast('Uploading motorcycle photo...','info');
+      const storageRef=storage.ref().child('users/'+this.user.uid+'/unitImg_'+Date.now());
+      const uploadTask=storageRef.put(f);
+      uploadTask.on('state_changed',
+        null,
+        err=>{
+          console.error('Unit img upload error:',err);
+          const msg=err.code==='storage/unauthorized'?'Upload blocked — check Firebase Storage rules.':err.message||'Upload failed';
+          this.toast(msg,'error');
+        },
+        ()=>{
+          uploadTask.snapshot.ref.getDownloadURL().then(url=>{
+            this.unitImg=url;this.save();this.toast('Motorcycle photo saved!','success');
+          }).catch(err=>{this.toast('Photo saved locally but URL failed','error');console.error(err);});
+        }
+      );
     },
 
     openEdit(){
@@ -867,11 +864,7 @@ function motoApp(){
       this.userPhone=this.editPhone;this.unitName=this.editUnit;this.yearModel=this.editYear;
       this.save();
       if(this.editAvatarFile){
-        this.uploadAvatar(this.editAvatarFile).then(()=>{
-          this.editModal=false;this.toast('Profile saved!','success');
-        }).catch(()=>{
-          this.editModal=false;
-        });
+        this.uploadAvatar(this.editAvatarFile).then(()=>{this.editModal=false;this.toast('Profile saved!','success');}).catch(()=>{this.editModal=false;});
       }else{
         this.editModal=false;this.toast('Profile saved!','success');
       }
@@ -879,7 +872,16 @@ function motoApp(){
 
     changePw(){
       if(!this.newPw||this.newPw.length<6){this.toast('Password must be at least 6 characters.','error');return;}
-      this.newPw='';this.toast('Password changed successfully!','success');
+      if(!auth||!auth.currentUser){this.toast('Not logged in.','error');return;}
+      auth.currentUser.updatePassword(this.newPw)
+        .then(()=>{this.newPw='';this.toast('Password changed successfully!','success');})
+        .catch(err=>{
+          if(err.code==='auth/requires-recent-login'){
+            this.toast('Please log out and log back in first, then try again.','error');
+          }else{
+            this.toast(err.message||'Password change failed','error');
+          }
+        });
     },
 
     clearHistory(){
@@ -889,7 +891,7 @@ function motoApp(){
 
     onFileSelect(e){
       const f=e.target.files[0];if(!f)return;
-      this.previewMimeType = f.type || 'image/jpeg';
+      this.previewMimeType=f.type||'image/jpeg';
       const r=new FileReader();
       r.onload=ev=>{
         this.previewUrl=ev.target.result;
@@ -904,96 +906,82 @@ function motoApp(){
     },
 
     startCamera(){
-      const constraints = { video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } } };
+      const constraints={video:{facingMode:'environment',width:{ideal:1280},height:{ideal:720}}};
       navigator.mediaDevices.getUserMedia(constraints)
-        .then(stream => {
-          this.cameraStream = stream;
-          this.cameraActive = true;
-          this.$nextTick(() => {
-            const video = document.getElementById('cameraVideo');
-            if (video) {
-              video.srcObject = stream;
-              video.play().catch(e => console.error('Play error:', e));
-            }
+        .then(stream=>{
+          this.cameraStream=stream;this.cameraActive=true;
+          this.$nextTick(()=>{
+            const video=document.getElementById('cameraVideo');
+            if(video){video.srcObject=stream;video.play().catch(e=>console.error('Play error:',e));}
           });
-          this.toast('Camera started', 'info');
+          this.toast('Camera started','info');
         })
-        .catch(err => {
-          console.error('Camera error:', err);
-          this.toast('Could not access camera. Check permissions.', 'error');
-        });
+        .catch(err=>{console.error('Camera error:',err);this.toast('Could not access camera. Check permissions.','error');});
     },
 
     stopCamera(){
-      if (this.cameraStream) {
-        this.cameraStream.getTracks().forEach(track => track.stop());
-        this.cameraStream = null;
-      }
-      this.cameraActive = false;
+      if(this.cameraStream){this.cameraStream.getTracks().forEach(track=>track.stop());this.cameraStream=null;}
+      this.cameraActive=false;
     },
 
     captureFromCamera(){
-      const video = document.getElementById('cameraVideo');
-      if (!video) return;
-      const canvas = document.createElement('canvas');
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(video, 0, 0);
-      this.previewUrl = canvas.toDataURL('image/jpeg');
-      this.previewBase64 = this.previewUrl.split(',')[1];
-      this.previewMimeType = 'image/jpeg';
-      this.scanStatus = 'idle';
-      this.scanResult = {};
-      this.stopCamera();
-      this.toast('Photo captured. Ready to scan.', 'success');
+      const video=document.getElementById('cameraVideo');if(!video)return;
+      const canvas=document.createElement('canvas');
+      canvas.width=video.videoWidth;canvas.height=video.videoHeight;
+      const ctx=canvas.getContext('2d');ctx.drawImage(video,0,0);
+      this.previewUrl=canvas.toDataURL('image/jpeg');
+      this.previewBase64=this.previewUrl.split(',')[1];
+      this.previewMimeType='image/jpeg';
+      this.scanStatus='idle';this.scanResult={};
+      this.stopCamera();this.toast('Photo captured. Ready to scan.','success');
     },
 
     async doScan(){
-  if(!this.previewBase64){this.toast('Please upload a photo first.','error');return;}
+      if(!this.previewBase64){this.toast('Please upload a photo first.','error');return;}
+      this.scanStatus='scanning';
+      const moto=(this.unitName&&this.yearModel)?`The user's motorcycle is a ${this.unitName} ${this.yearModel}.`:'Motorcycle model not specified.';
+      const prompt=`You are an AI Mechanic expert in motorcycle parts for the Philippine market.\n${moto}\nAnalyze this image and respond ONLY with a valid JSON object (no markdown, no explanation) with these fields: { "found": true/false, "quality": "good"/"bad", "partName": "...", "description": "...", "shopeeQuery": "...", "lazadaQuery": "..." }`;
 
-  this.scanStatus='scanning';
-  const moto=(this.unitName&&this.yearModel)?`The user's motorcycle is a ${this.unitName} ${this.yearModel}.`:'Motorcycle model not specified.';
-  const prompt=`You are an AI Mechanic expert in motorcycle parts for the Philippine market.\n${moto}\nAnalyze this image for quality and part identification. - Use the motorcycle model for context-aware identification.`;
+      try{
+        const res=await fetch('/api/chat',{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({
+            prompt:prompt,
+            image:this.previewBase64,
+            mimeType:this.previewMimeType||'image/jpeg'
+          })
+        });
 
-  try{
-   try {
-  const res = await fetch('/api/chat', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      prompt: prompt,
-      image: this.previewBase64,
-      mimeType: this.previewMimeType || 'image/jpeg'
-    })
-  });
         if(!res.ok){
-          const errText = await res.text().catch(()=>res.statusText);
-          throw new Error(`Gemini API ${res.status}: ${errText}`);
+          const errText=await res.text().catch(()=>res.statusText);
+          throw new Error(`API Error ${res.status}: ${errText}`);
         }
+
         const data=await res.json();
-        console.debug('Gemini raw response', data);
         const raw=data?.candidates?.[0]?.content?.parts?.[0]?.text;
-        if(!raw) throw new Error('Unexpected Gemini response format');
-        const jsonText = raw.replace(/```json|```/g,'').trim();
+        if(!raw) throw new Error('Unexpected response format');
+
+        const jsonText=raw.replace(/```json|```/g,'').trim();
         const p=JSON.parse(jsonText);
-        console.debug('Parsed Gemini payload', p);
-        const quality = p.quality || 'good';
-        const found = p.found === true || (!!p.partName && p.partName.toString().trim() !== '' && p.found !== false);
+
+        const quality=p.quality||'good';
+        const found=p.found===true||(!!p.partName&&p.partName.toString().trim()!==''&&p.found!==false);
+
         if(quality==='bad'){
           this.scanStatus='improper';
           this.scanResult={partName:'Poor Quality Photo',description:p.description};
           this.toast('Photo quality is poor. Please retake.','error');
         }else if(found){
           this.scanResult={
-            partName:p.partName||'Identified Part',description:p.description||'Part appears to match this description.',
+            partName:p.partName||'Identified Part',
+            description:p.description||'Part appears to match this description.',
             shopeeUrl:'https://shopee.ph/search?keyword='+encodeURIComponent(p.shopeeQuery||p.partName||''),
             lazadaUrl:'https://www.lazada.com.ph/catalog/?q='+encodeURIComponent(p.lazadaQuery||p.partName||'')
           };
           this.scanStatus='found';
           this.scanHistory.push({
-            id:Date.now(),partName:p.partName,
-            imageUrl:this.previewUrl,
+            id:Date.now(),partName:p.partName,imageUrl:this.previewUrl,
             date:new Date().toLocaleDateString('en-PH',{month:'short',day:'numeric',year:'numeric'}),
             today:true,status:'found',
             shopeeUrl:this.scanResult.shopeeUrl,lazadaUrl:this.scanResult.lazadaUrl
@@ -1003,8 +991,7 @@ function motoApp(){
         }else{
           this.scanStatus='fail';
           this.scanHistory.push({
-            id:Date.now(),partName:'Unknown Part',
-            imageUrl:this.previewUrl,
+            id:Date.now(),partName:'Unknown Part',imageUrl:this.previewUrl,
             date:new Date().toLocaleDateString('en-PH',{month:'short',day:'numeric',year:'numeric'}),
             today:true,status:'fail',shopeeUrl:'',lazadaUrl:''
           });
@@ -1017,6 +1004,7 @@ function motoApp(){
         this.toast('Scan failed. Check connection or try again.','error');
       }
     }
+
   };
 }
 </script>
