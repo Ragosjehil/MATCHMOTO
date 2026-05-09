@@ -643,7 +643,7 @@ const firebaseConfig = {
   measurementId: "G-MLNZV08JRR"
 };
 
-const myKey = process.env.GEMINI_API_KEY; 
+
 
 // Initialize Firebase when SDK is ready
 let auth, db, storage;
@@ -656,9 +656,9 @@ function initFirebase(){
     if(!firebase.apps.length){
       firebase.initializeApp(firebaseConfig);
     }
-    auth=firebase.auth();
-    db=firebase.firestore();
-    storage=firebase.storage();
+    //auth=firebase.auth();
+    //db=firebase.firestore();
+    //storage=firebase.storage();
     console.log('Firebase initialized successfully');
     return true;
   }catch(err){
@@ -668,11 +668,11 @@ function initFirebase(){
 }
 
 // Try to initialize when script loads
-if(document.readyState==='loading'){
-  document.addEventListener('DOMContentLoaded',initFirebase);
-}else{
-  setTimeout(initFirebase,100);
-}
+//if(document.readyState==='loading'){
+ // document.addEventListener('DOMContentLoaded',initFirebase);
+//}else{
+ // setTimeout(initFirebase,100);
+//}
 
 function motoApp(){
   return {
