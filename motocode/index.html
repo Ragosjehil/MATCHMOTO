@@ -936,7 +936,6 @@ function motoApp(){
       this.stopCamera();this.toast('Photo captured. Ready to scan.','success');
     },
 
-
 async doScan() {
 this.scanStatus = 'identifying';
 try {
@@ -948,23 +947,30 @@ body: JSON.stringify({
 contents: [{
 parts: [
 { text: prompt },
-{ inline_data: { mime_type: "image/jpeg", "data": this.previewBase64 } }
+{ inline_data: { mime_type: "image/jpeg", data: this.previewBase64 } }
 ]
 }]
 })
 });
 
-if (!res.ok) throw new Error('API error: ' + res.status);
+if (!res.ok) throw new Error('API Error: ' + res.status);
+
 const data = await res.json();
+// Pagkuha ng text mula sa Gemini 1.5 response
+if (data.candidates && data.candidates[0].content.parts[0].text) {
 this.scanResult = data.candidates[0].content.parts[0].text;
+} else {
+this.scanResult = "Could not identify part.";
+}
 this.scanStatus = 'success';
+
 } catch (err) {
-console.error(err);
+console.error('Scan error:', err);
 this.scanStatus = 'error';
 }
 }
-  };
-}
+}; // Isinasara ang return object
+} // Isinasara ang motoApp function
 </script>
 </body>
 </html>
