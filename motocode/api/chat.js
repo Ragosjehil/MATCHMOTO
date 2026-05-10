@@ -1,31 +1,35 @@
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 
 module.exports = async (req, res) => {
-  // CORS Headers
+  // Payagan ang CORS para sa iyong frontend
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
 
   try {
     const { image } = req.body;
-    if (!image) return res.status(400).json({ error: "No image provided" });
+    if (!image) {
+      return res.status(400).json({ error: "Walang image na natanggap." });
+    }
 
     const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) return res.status(500).json({ error: "API Key missing" });
+    if (!apiKey) {
+      return res.status(500).json({ error: "API Key is missing sa Vercel settings." });
+    }
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    // Siguraduhing gemini-1.5-flash ang gamit
+    // Gamitin ang 1.5-flash dahil ito ang pinaka-stable para sa libreng tier
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-    const prompt = "Identify this motorcycle part and give a brief description of its function.";
-    
-    // Alisin ang data:image/jpeg;base64, prefix kung meron man
-    const base64Data = image.replace(/^data:image\/\w+;base64,/, "");
+    // Linisin ang base64 data kung mayroon itong prefix
+    const base64Data = image.includes("base64,") ? image.split("base64,")[1] : image;
 
     const result = await model.generateContent([
-      prompt,
+      "Identify this motorcycle part and give a brief description of its function.",
       {
         inlineData: {
           data: base64Data,
@@ -38,7 +42,7 @@ module.exports = async (req, res) => {
     return res.status(200).json({ text: response.text() });
 
   } catch (error) {
-    console.error("Server Error:", error);
+    console.error("API Error:", error);
     return res.status(500).json({ error: error.message });
   }
 };
