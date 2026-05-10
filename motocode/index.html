@@ -936,86 +936,33 @@ function motoApp(){
       this.stopCamera();this.toast('Photo captured. Ready to scan.','success');
     },
 
-    async doScan(){
-      if(!this.previewBase64){this.toast('Please upload a photo first.','error');return;}
-      this.scanStatus='scanning';
-      const moto=(this.unitName&&this.yearModel)?`The user's motorcycle is a ${this.unitName} ${this.yearModel}.`:'Motorcycle model not specified.';
-      const prompt=`You are an AI Mechanic expert in motorcycle parts for the Philippine market.\n${moto}\nAnalyze this image and respond ONLY with a valid JSON object (no markdown, no explanation) with these fields: { "found": true/false, "quality": "good"/"bad", "partName": "...", "description": "...", "shopeeQuery": "...", "lazadaQuery": "..." }`;
 
-      try{
-       const res = await fetch(`https://googleapis.com`,{
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-        contents: [{
-            parts: [
-                { text: prompt },
-                { inline_data: { mime_type: "image/jpeg", data: this.previewBase64 } }
-            ]
-        }]
-    })
+async doScan() {
+this.scanStatus = 'identifying';
+try {
+const prompt = "Identify this motorcycle part. Be specific.";
+const res = await fetch(`https://googleapis.com`, {
+method: 'POST',
+headers: { 'Content-Type': 'application/json' },
+body: JSON.stringify({
+contents: [{
+parts: [
+{ text: prompt },
+{ inline_data: { mime_type: "image/jpeg", "data": this.previewBase64 } }
+]
+}]
+})
 });
 
-        if(!res.ok){
-          const errText=await res.text().catch(()=>res.statusText);
-          throw new Error(`API Error ${res.status}: ${errText}`);
-        }
-
-        const data=await res.json();
-        console.log('API response:',JSON.stringify(data).substring(0,300));
-        const raw=data?.candidates?.[0]?.content?.parts?.[0]?.text;
-        if(!raw){
-          console.error('No text in response:',JSON.stringify(data));
-          throw new Error('No response from AI. Try again.');
-        }
-
-        // Robust JSON extraction - find first { to last }
-        const jsonText=raw.replace(/```json|```/g,'').trim();
-        const jsonStart=jsonText.indexOf('{');
-        const jsonEnd=jsonText.lastIndexOf('}');
-        if(jsonStart===-1||jsonEnd===-1) throw new Error('AI did not return valid JSON');
-        const p=JSON.parse(jsonText.substring(jsonStart,jsonEnd+1));
-
-        const quality=p.quality||'good';
-        const found=p.found===true||(!!p.partName&&p.partName.toString().trim()!==''&&p.found!==false);
-
-        if(quality==='bad'){
-          this.scanStatus='improper';
-          this.scanResult={partName:'Poor Quality Photo',description:p.description};
-          this.toast('Photo quality is poor. Please retake.','error');
-        }else if(found){
-          this.scanResult={
-            partName:p.partName||'Identified Part',
-            description:p.description||'Part appears to match this description.',
-            shopeeUrl:'https://shopee.ph/search?keyword='+encodeURIComponent(p.shopeeQuery||p.partName||''),
-            lazadaUrl:'https://www.lazada.com.ph/catalog/?q='+encodeURIComponent(p.lazadaQuery||p.partName||'')
-          };
-          this.scanStatus='found';
-          this.scanHistory.push({
-            id:Date.now(),partName:p.partName,imageUrl:this.previewUrl,
-            date:new Date().toLocaleDateString('en-PH',{month:'short',day:'numeric',year:'numeric'}),
-            today:true,status:'found',
-            shopeeUrl:this.scanResult.shopeeUrl,lazadaUrl:this.scanResult.lazadaUrl
-          });
-          this.save();
-          this.toast('Part identified: '+p.partName,'success');
-        }else{
-          this.scanStatus='fail';
-          this.scanHistory.push({
-            id:Date.now(),partName:'Unknown Part',imageUrl:this.previewUrl,
-            date:new Date().toLocaleDateString('en-PH',{month:'short',day:'numeric',year:'numeric'}),
-            today:true,status:'fail',shopeeUrl:'',lazadaUrl:''
-          });
-          this.save();
-          this.toast('Could not identify part. Try a clearer photo.','error');
-        }
-      }catch(err){
-        console.error('doScan error:',err);
-        this.scanStatus='fail';
-        this.toast('Scan failed: '+err.message,'error');
-      }
-    }
-
+if (!res.ok) throw new Error('API error: ' + res.status);
+const data = await res.json();
+this.scanResult = data.candidates[0].content.parts[0].text;
+this.scanStatus = 'success';
+} catch (err) {
+console.error(err);
+this.scanStatus = 'error';
+}
+}
   };
 }
 </script>
