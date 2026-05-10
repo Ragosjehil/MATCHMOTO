@@ -1,19 +1,9 @@
-# API Keys and Secrets
+
 .env
 .env.local
-.env.development.local
-.env.test.local
-.env.production.local
 
-# Dependencies and Build folders
 node_modules/
-dist/
-build/
 
-# System Files
-.DS_Store
-Thumbs.db
+.vercel
 
-# Logs
 *.log
-npm-debug.log*
