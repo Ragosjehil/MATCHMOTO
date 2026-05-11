@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MotoMatch - Broken Parts</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Exo+2:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<link rel="stylesheet" href="styles.css">
+<script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-storage-compat.js"></script>
+</head>
+<body data-page="broken">
+<div x-data="motoApp()" x-init="init()" class="page">
+  <div class="toast-container">
+    <template x-for="t in toasts" :key="t.id">
+      <div class="toast" :class="t.type">
+        <i :class="t.type==='success'?'fas fa-check-circle':t.type==='error'?'fas fa-times-circle':'fas fa-info-circle'"></i>
+        <span x-text="t.msg"></span>
+      </div>
+    </template>
+  </div>
+
+  <div class="app-shell" x-cloak>
+    <div class="sidebar" :class="showMenu?'open':''">
+      <div class="sidebar-head">
+        <div class="sidebar-logo"><i class="fas fa-motorcycle"></i></div>
+        <div class="sidebar-brand"><h2>MOTO</h2><p>MATCH</p></div>
+      </div>
+      <nav class="sidebar-nav">
+        <button class="nav-btn" :class="page==='dashboard'?'active':''" @click="go('dashboard')"><i class="fas fa-home"></i> Dashboard</button>
+        <button class="nav-btn" :class="page==='scanner'?'active':''" @click="go('scanner')"><i class="fas fa-camera"></i> Scan Parts</button>
+        <button class="nav-btn" :class="page==='need'?'active':''" @click="go('need')"><i class="fas fa-cart-plus"></i> Need To Buy</button>
+        <button class="nav-btn" :class="page==='broken'?'active':''" @click="go('broken')"><i class="fas fa-wrench"></i> Broken Parts</button>
+        <button class="nav-btn" :class="page==='profile'?'active':''" @click="go('profile')"><i class="fas fa-user"></i> Profile</button>
+        <button class="nav-btn" :class="page==='settings'?'active':''" @click="go('settings')"><i class="fas fa-cog"></i> Settings</button>
+      </nav>
+      <div class="sidebar-foot">
+        <button class="btn-logout-side" @click="logout()"><i class="fas fa-sign-out-alt"></i> Logout</button>
+      </div>
+    </div>
+    <div class="sidebar-overlay" :class="showMenu?'open':''" @click="showMenu=false"></div>
+
+    <div class="main">
+      <div class="topbar">
+        <button class="btn-menu" @click="showMenu=!showMenu"><i class="fas fa-bars"></i></button>
+        <span class="page-title" x-text="pageTitle()"></span>
+        <div class="topbar-right">
+          <button class="topbar-btn" @click="go('settings')"><i class="fas fa-bell"></i></button>
+          <button class="topbar-btn" @click="go('profile')" style="overflow:hidden;padding:0;">
+            <img :src="profileImg" style="width:42px;height:42px;object-fit:cover;border-radius:10px;" alt="">
+          </button>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="broken-layout">
+          <section class="broken-form-card">
+            <span class="eyebrow">List Broken Parts</span>
+            <h2>Save a broken part photo</h2>
+            <div class="form-group">
+              <label class="form-label">BROKEN PART NAME</label>
+              <div class="input-wrap"><i class="fas fa-wrench icon"></i><input class="form-input" x-model="brokenName" placeholder="e.g. Broken brake lever"></div>
+            </div>
+            <div class="broken-preview" x-show="brokenImageUrl">
+              <img :src="brokenImageUrl" alt="Broken part preview">
+            </div>
+            <div class="broken-preview" x-show="brokenCameraActive">
+              <video id="brokenCameraVideo" playsinline autoplay muted></video>
+            </div>
+            <div class="broken-photo-actions">
+              <button class="upload-label" type="button" @click="startBrokenCamera()" x-show="!brokenCameraActive">
+                <i class="fas fa-camera"></i> Take Picture
+              </button>
+              <button class="upload-label" type="button" @click="captureBrokenPhoto()" x-show="brokenCameraActive">
+                <i class="fas fa-circle-dot"></i> Capture
+              </button>
+              <button class="upload-label stop-camera-btn" type="button" @click="stopBrokenCamera()" x-show="brokenCameraActive">
+                <i class="fas fa-times-circle"></i> Stop
+              </button>
+              <label class="upload-label">
+                <i class="fas fa-image"></i> Upload Photo
+                <input type="file" accept="image/*" style="display:none" @change="onBrokenImageSelect($event)">
+              </label>
+            </div>
+            <button class="btn btn-primary" style="margin-top:12px" @click="addBrokenPart()"><i class="fas fa-search"></i> SAVE & SCAN PART</button>
+          </section>
+
+          <section class="broken-list-card">
+            <div class="need-list-head">
+              <div>
+                <span class="eyebrow">Saved Broken Parts</span>
+                <h2>Tap one to scan</h2>
+              </div>
+              <strong x-text="brokenParts.length"></strong>
+            </div>
+            <div x-show="brokenParts.length===0" class="empty-state">
+              <i class="fas fa-wrench"></i>
+              <p>No broken parts saved yet. Add a name and picture, then tap it later to load it in the scanner.</p>
+            </div>
+            <template x-for="item in brokenParts.slice().reverse()" :key="item.id">
+              <div class="broken-item">
+                <button class="broken-item-main" @click="scanBrokenPart(item)">
+                  <img :src="item.imageUrl" alt="">
+                  <span>
+                    <strong x-text="item.name"></strong>
+                    <small x-text="item.date"></small>
+                  </span>
+                </button>
+                <button class="need-delete" @click="removeBrokenPart(item.id)" title="Remove broken part"><i class="fas fa-trash-alt"></i></button>
+              </div>
+            </template>
+          </section>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script src="script.js"></script>
+</body>
+</html>

@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MotoMatch - Profile</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Exo+2:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<link rel="stylesheet" href="styles.css">
+<script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-storage-compat.js"></script>
+</head>
+<body data-page="profile">
+<div x-data="motoApp()" x-init="init()" class="page">
+  <!-- TOASTS -->
+  <div class="toast-container">
+    <template x-for="t in toasts" :key="t.id">
+      <div class="toast" :class="t.type">
+        <i :class="t.type==='success'?'fas fa-check-circle':t.type==='error'?'fas fa-times-circle':'fas fa-info-circle'"></i>
+        <span x-text="t.msg"></span>
+      </div>
+    </template>
+  </div>
+
+  <div class="modal-bg" x-show="editModal" x-cloak>
+    <div class="modal" @click.stop>
+      <h2>Edit Profile</h2>
+      <div class="form-group">
+        <label class="form-label">PROFILE PHOTO</label>
+        <div class="avatar-upload-wrap">
+          <img :src="profileImg" alt="Profile photo" class="avatar-upload-img">
+          <label class="avatar-upload-label">
+            <i class="fas fa-camera"></i> Upload New Photo
+            <input type="file" accept="image/*" style="display:none" @change="onAvatarSelect($event)">
+          </label>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">DISPLAY NAME</label>
+        <div class="input-wrap"><i class="fas fa-user icon"></i><input class="form-input" x-model="editName" placeholder="Your name"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">PHONE NUMBER</label>
+        <div class="input-wrap"><i class="fas fa-phone icon"></i><input class="form-input" x-model="editPhone" placeholder="09xxxxxxxxx"></div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-cancel" @click="editModal=false">Cancel</button>
+        <button class="btn-save" @click="saveEdit()">Save Changes</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- APP -->
+  <div class="app-shell" x-cloak>
+    <!-- Sidebar -->
+    <div class="sidebar" :class="showMenu?'open':''">
+      <div class="sidebar-head">
+        <div class="sidebar-logo"><i class="fas fa-motorcycle"></i></div>
+        <div class="sidebar-brand"><h2>MOTO</h2><p>MATCH</p></div>
+      </div>
+      <nav class="sidebar-nav">
+        <button class="nav-btn" :class="page==='dashboard'?'active':''" @click="go('dashboard')"><i class="fas fa-home"></i> Dashboard</button>
+        <button class="nav-btn" :class="page==='scanner'?'active':''" @click="go('scanner')"><i class="fas fa-camera"></i> Scan Parts</button>
+        <button class="nav-btn" :class="page==='need'?'active':''" @click="go('need')"><i class="fas fa-cart-plus"></i> Need To Buy</button>
+        <button class="nav-btn" :class="page==='broken'?'active':''" @click="go('broken')"><i class="fas fa-wrench"></i> Broken Parts</button>
+        <button class="nav-btn" :class="page==='profile'?'active':''" @click="go('profile')"><i class="fas fa-user"></i> Profile</button>
+        <button class="nav-btn" :class="page==='settings'?'active':''" @click="go('settings')"><i class="fas fa-cog"></i> Settings</button>
+      </nav>
+      <div class="sidebar-foot">
+        <button class="btn-logout-side" @click="logout()"><i class="fas fa-sign-out-alt"></i> Logout</button>
+      </div>
+    </div>
+    <div class="sidebar-overlay" :class="showMenu?'open':''" @click="showMenu=false"></div>
+
+    <div class="main">
+      <div class="topbar">
+        <button class="btn-menu" @click="showMenu=!showMenu"><i class="fas fa-bars"></i></button>
+        <span class="page-title" x-text="pageTitle()"></span>
+        <div class="topbar-right">
+          <button class="topbar-btn" @click="go('settings')"><i class="fas fa-bell"></i></button>
+          <button class="topbar-btn" @click="go('profile')" style="overflow:hidden;padding:0;">
+            <img :src="profileImg" style="width:42px;height:42px;object-fit:cover;border-radius:10px;" alt="">
+          </button>
+        </div>
+      </div>
+
+      <div class="content">
+        <!-- PROFILE -->
+        <div x-show="page==='profile'">
+          <div class="profile-header">
+            <div class="profile-avatar-wrap">
+              <img class="profile-avatar" :src="profileImg" alt="Profile">
+            </div>
+            <div class="profile-details">
+              <div class="profile-name" x-text="userName"></div>
+              <div class="profile-meta" x-text="userEmail"></div>
+              <div class="profile-meta" x-text="userPhone||'No phone set'"></div>
+              <div class="profile-chips">
+                <span class="chip" x-text="unitName||'Rider 150 fi'"></span>
+                <span class="chip" x-text="yearModel||'2026'"></span>
+              </div>
+            </div>
+          </div>
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px;margin-bottom:24px;overflow:hidden;">
+            <h3 style="font-size:16px;letter-spacing:.08em;color:var(--blue-bright);margin-bottom:14px;"><i class="fas fa-motorcycle"></i> Motorcycle Unit</h3>
+            <div style="position:relative;height:200px;background:var(--card2);border-radius:12px;overflow:hidden;margin-bottom:12px;">
+              <img :src="unitImg" alt="Motorcycle" style="width:100%;height:100%;object-fit:cover;">
+              <label style="position:absolute;bottom:8px;right:8px;width:40px;height:40px;background:var(--blue);border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#fff;font-size:16px;box-shadow:0 4px 12px rgba(37,99,235,.3);">
+                <i class="fas fa-camera"></i>
+                <input type="file" accept="image/*" style="display:none" @change="onUnitImageSelect($event)">
+              </label>
+            </div>
+            <div style="font-size:14px;font-weight:700;color:#fff;margin-bottom:4px;" x-text="unitName||'Your Motorcycle'"></div>
+            <div style="font-size:12px;color:var(--muted);" x-text="yearModel?yearModel+' Model':'Year not set'"></div>
+          </div>
+          <div class="profile-menu">
+            <div class="profile-menu-item" @click="openEdit()">
+              <span><i class="fas fa-user"></i> Edit Profile</span><i class="fas fa-chevron-right"></i>
+            </div>
+            <div class="profile-menu-item" @click="go('dashboard')">
+              <span><i class="fas fa-motorcycle"></i> Edit Unit / Year Model</span><i class="fas fa-chevron-right"></i>
+            </div>
+            <div class="profile-menu-item" @click="go('need')">
+              <span><i class="fas fa-cart-arrow-down"></i> Add Part Need / To Buy</span><i class="fas fa-chevron-right"></i>
+            </div>
+            <div class="profile-menu-item" @click="go('broken')">
+              <span><i class="fas fa-wrench"></i> List Broken Parts</span><i class="fas fa-chevron-right"></i>
+            </div>
+          </div>
+          <button class="btn-logout-big" @click="logout()">LOG OUT</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+<script src="script.js"></script>
+</body>
+</html>

@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MotoMatch - Scanner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Exo+2:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<link rel="stylesheet" href="styles.css">
+<script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-storage-compat.js"></script>
+</head>
+<body data-page="scanner">
+<div x-data="motoApp()" x-init="init()" class="page">
+  <!-- TOASTS -->
+  <div class="toast-container">
+    <template x-for="t in toasts" :key="t.id">
+      <div class="toast" :class="t.type">
+        <i :class="t.type==='success'?'fas fa-check-circle':t.type==='error'?'fas fa-times-circle':'fas fa-info-circle'"></i>
+        <span x-text="t.msg"></span>
+      </div>
+    </template>
+  </div>
+
+  <div class="modal-bg" x-show="editModal" x-cloak>
+    <div class="modal" @click.stop>
+      <h2>Edit Profile</h2>
+      <div class="form-group">
+        <label class="form-label">PROFILE PHOTO</label>
+        <div class="avatar-upload-wrap">
+          <img :src="profileImg" alt="Profile photo" class="avatar-upload-img">
+          <label class="avatar-upload-label">
+            <i class="fas fa-camera"></i> Upload New Photo
+            <input type="file" accept="image/*" style="display:none" @change="onAvatarSelect($event)">
+          </label>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">DISPLAY NAME</label>
+        <div class="input-wrap"><i class="fas fa-user icon"></i><input class="form-input" x-model="editName" placeholder="Your name"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">PHONE NUMBER</label>
+        <div class="input-wrap"><i class="fas fa-phone icon"></i><input class="form-input" x-model="editPhone" placeholder="09xxxxxxxxx"></div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-cancel" @click="editModal=false">Cancel</button>
+        <button class="btn-save" @click="saveEdit()">Save Changes</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- APP -->
+  <div class="app-shell" x-cloak>
+    <!-- Sidebar -->
+    <div class="sidebar" :class="showMenu?'open':''">
+      <div class="sidebar-head">
+        <div class="sidebar-logo"><i class="fas fa-motorcycle"></i></div>
+        <div class="sidebar-brand"><h2>MOTO</h2><p>MATCH</p></div>
+      </div>
+      <nav class="sidebar-nav">
+        <button class="nav-btn" :class="page==='dashboard'?'active':''" @click="go('dashboard')"><i class="fas fa-home"></i> Dashboard</button>
+        <button class="nav-btn" :class="page==='scanner'?'active':''" @click="go('scanner')"><i class="fas fa-camera"></i> Scan Parts</button>
+        <button class="nav-btn" :class="page==='need'?'active':''" @click="go('need')"><i class="fas fa-cart-plus"></i> Need To Buy</button>
+        <button class="nav-btn" :class="page==='broken'?'active':''" @click="go('broken')"><i class="fas fa-wrench"></i> Broken Parts</button>
+        <button class="nav-btn" :class="page==='profile'?'active':''" @click="go('profile')"><i class="fas fa-user"></i> Profile</button>
+        <button class="nav-btn" :class="page==='settings'?'active':''" @click="go('settings')"><i class="fas fa-cog"></i> Settings</button>
+      </nav>
+      <div class="sidebar-foot">
+        <button class="btn-logout-side" @click="logout()"><i class="fas fa-sign-out-alt"></i> Logout</button>
+      </div>
+    </div>
+    <div class="sidebar-overlay" :class="showMenu?'open':''" @click="showMenu=false"></div>
+
+    <div class="main">
+      <div class="topbar">
+        <button class="btn-menu" @click="showMenu=!showMenu"><i class="fas fa-bars"></i></button>
+        <span class="page-title" x-text="pageTitle()"></span>
+        <div class="topbar-right">
+          <button class="topbar-btn" @click="go('settings')"><i class="fas fa-bell"></i></button>
+          <button class="topbar-btn" @click="go('profile')" style="overflow:hidden;padding:0;">
+            <img :src="profileImg" style="width:42px;height:42px;object-fit:cover;border-radius:10px;" alt="">
+          </button>
+        </div>
+      </div>
+
+      <div class="content">
+        <!-- SCANNER -->
+        <div x-show="page==='scanner'">
+          <div class="scanner-wrap">
+            <div class="fitment-panel">
+              <div>
+                <span class="eyebrow">AI Shopping Finder</span>
+                <h2>Scan a motorcycle part and find where to buy it</h2>
+                <p x-text="unitName&&yearModel?'Searches Shopee, Lazada, and other shops for '+unitName+' '+yearModel+' parts.':'Upload or scan a part. Add your motorcycle unit/year for better search results.'"></p>
+              </div>
+              <div class="fitment-controls">
+                <select x-model="partCategory">
+                  <option>Unknown part</option>
+                  <option>Brake pad</option>
+                  <option>Chain and sprocket</option>
+                  <option>Air filter</option>
+                  <option>Spark plug</option>
+                  <option>Clutch cable</option>
+                  <option>Electrical component</option>
+                  <option>Fairing or body panel</option>
+                </select>
+                <select x-model="scanMode">
+                  <option value="owner">DIY owner</option>
+                  <option value="shop">Repair shop</option>
+                  <option value="fleet">Fleet manager</option>
+                </select>
+              </div>
+            </div>
+            <div class="cam-box">
+              <div class="scan-corner tl"></div>
+              <div class="scan-corner br"></div>
+              <div class="scanning-line" x-show="scanStatus==='scanning'"></div>
+              <video class="preview" x-show="cameraActive" id="cameraVideo" style="width:100%;height:100%;object-fit:cover;" playsinline autoplay></video>
+              <img class="preview" x-show="previewUrl&&!cameraActive" :src="previewUrl" alt="Part preview">
+              <div class="cam-placeholder" x-show="!previewUrl&&!cameraActive">
+                <i class="fas fa-camera"></i>
+                <p>Use your camera or upload a photo of your part</p>
+              </div>
+            </div>
+
+            <div class="scan-actions">
+              <div style="display:flex;gap:10px;margin-bottom:12px;">
+                <button class="upload-label" style="flex:1;margin:0;" @click="startCamera()" x-show="!cameraActive">
+                  <i class="fas fa-camera"></i> Start Camera
+                </button>
+                <button class="upload-label" style="flex:1;margin:0;background:rgba(239,68,68,.15);color:#f87171;" @click="stopCamera()" x-show="cameraActive">
+                  <i class="fas fa-times-circle"></i> Stop Camera
+                </button>
+                <label class="upload-label" style="flex:1;margin:0;">
+                  <i class="fas fa-image"></i> Upload Photo
+                  <input type="file" accept="image/*" style="display:none" @change="onFileSelect($event)">
+                </label>
+              </div>
+
+              <button class="btn-scan" @click="captureFromCamera()" :disabled="!cameraActive||scanStatus==='scanning'" x-show="cameraActive">
+                <template x-if="scanStatus!=='scanning'"><span><i class="fas fa-camera"></i> CAPTURE & SCAN</span></template>
+                <template x-if="scanStatus==='scanning'"><span><i class="fas fa-circle-notch spin"></i> Analyzing...</span></template>
+              </button>
+
+              <button class="btn-scan" @click="doScan()" :disabled="!previewUrl||cameraActive||scanStatus==='scanning'" x-show="!cameraActive">
+                <template x-if="scanStatus!=='scanning'"><span><i class="fas fa-search"></i> FIND THIS PART ONLINE</span></template>
+                <template x-if="scanStatus==='scanning'"><span><i class="fas fa-circle-notch spin"></i> Finding stores...</span></template>
+              </button>
+
+              <div x-show="scanStatus==='found'" class="result-card found">
+                <div class="result-icon"><i class="fas fa-check-circle"></i></div>
+                <div class="result-body">
+                  <h4 x-text="scanResult.partName||'Part Identified!'"></h4>
+                  <p x-text="scanResult.description"></p>
+                  <div class="compat-row">
+                    <span>Search query</span>
+                    <strong x-text="scanResult.searchQuery||scanResult.partName"></strong>
+                  </div>
+                  <ul class="fitment-notes">
+                    <template x-for="note in scanResult.fitmentNotes" :key="note">
+                      <li x-text="note"></li>
+                    </template>
+                  </ul>
+                </div>
+              </div>
+
+              <div x-show="scanStatus==='fail'" class="result-card fail">
+                <div class="result-icon"><i class="fas fa-times-circle"></i></div>
+                <div class="result-body">
+                  <h4>No Match Found</h4>
+                  <p>Try a clearer, well-lit photo. Make sure the part fills the frame.</p>
+                </div>
+              </div>
+
+              <div x-show="scanStatus==='improper'" class="result-card fail">
+                <div class="result-icon"><i class="fas fa-exclamation-triangle"></i></div>
+                <div class="result-body">
+                  <h4>Photo Quality Issue</h4>
+                  <p x-text="scanResult.description"></p>
+                  <ul class="fitment-notes">
+                    <template x-for="note in scanResult.fitmentNotes" :key="note">
+                      <li x-text="note"></li>
+                    </template>
+                  </ul>
+                </div>
+              </div>
+
+              <div x-show="scanStatus==='found'" class="shop-links">
+                <a :href="scanResult.shopeeUrl" target="_blank" class="shop-btn shop-shopee">
+                  <i class="fas fa-shopping-bag"></i> SHOPEE
+                </a>
+                <button class="shop-save-btn" @click="useScanLink(scanResult.shopeeUrl)">
+                  <i class="fas fa-bookmark"></i> SAVE SHOPEE LINK
+                </button>
+                <a :href="scanResult.lazadaUrl" target="_blank" class="shop-btn shop-lazada">
+                  <i class="fas fa-shopping-cart"></i> LAZADA
+                </a>
+                <button class="shop-save-btn" @click="useScanLink(scanResult.lazadaUrl)">
+                  <i class="fas fa-bookmark"></i> SAVE LAZADA LINK
+                </button>
+              </div>
+
+              <div x-show="scanStatus==='found'" class="other-shops">
+                <h3>OTHER ONLINE SHOPS</h3>
+                <template x-for="link in scanResult.otherShopLinks" :key="link.url">
+                  <a :href="link.url" target="_blank" class="other-shop-link">
+                    <i class="fas fa-up-right-from-square"></i>
+                    <span x-text="link.label"></span>
+                  </a>
+                </template>
+              </div>
+
+              <button x-show="scanStatus==='found'||scanStatus==='fail'||scanStatus==='improper'" @click="resetScan()" class="btn-reset">
+                <i class="fas fa-redo"></i> Scan Another Part
+              </button>
+            </div>
+
+            <!-- History -->
+            <div class="scan-history" x-show="scanHistory.length>0">
+              <h3>SCAN HISTORY (<span x-text="scanHistory.length"></span>)</h3>
+              <template x-for="item in scanHistory.slice().reverse()" :key="item.id">
+                <div class="history-item">
+                  <template x-if="item.imageUrl">
+                    <img class="history-thumb" :src="item.imageUrl" alt="">
+                  </template>
+                  <template x-if="!item.imageUrl">
+                    <div class="history-thumb" style="display:flex;align-items:center;justify-content:center;background:var(--card2);">
+                      <i class="fas fa-image" style="color:var(--muted)"></i>
+                    </div>
+                  </template>
+                  <div class="history-info">
+                    <div class="part-name" x-text="item.partName"></div>
+                    <div class="part-time" x-text="item.date"></div>
+                    <div class="part-time" x-show="item.searchQuery" x-text="item.searchQuery"></div>
+                    <div class="history-links" x-show="item.status==='found'">
+                      <a :href="item.shopeeUrl" target="_blank" class="hl-shopee">Shopee</a>
+                      <a :href="item.lazadaUrl" target="_blank" class="hl-lazada">Lazada</a>
+                    </div>
+                  </div>
+                  <span class="status-badge" :class="item.status==='found'?'status-found':'status-fail'" x-text="item.status==='found'?'Found':'Not Found'"></span>
+                </div>
+              </template>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+<script src="script.js"></script>
+</body>
+</html>

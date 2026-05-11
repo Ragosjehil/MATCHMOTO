@@ -2,7 +2,10 @@
   "name": "matchmoto-ai",
   "version": "1.0.0",
   "description": "Motorcycle part identifier using Gemini AI",
-  "main": "api/chat.js",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
   "dependencies": {
     "@google/generative-ai": "^0.21.0"
   },
