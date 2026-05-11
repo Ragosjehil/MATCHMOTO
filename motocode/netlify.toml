@@ -1,0 +1,4 @@
+[build]
+  base = "motocode"
+  publish = "."
+  command = "sed -i 's/YOUR_API_KEY_PLACEHOLDER/'\"$MY_SECRET_KEY\"'/g' index.html && sed -i 's/YOUR_GEMINI_HOLDER/'\"$GEMINI_API_KEY\"'/g' index.html"

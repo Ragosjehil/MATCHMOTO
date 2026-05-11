@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MotoMatch</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Exo+2:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<link rel="stylesheet" href="styles.css">
+<script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-storage-compat.js"></script>
+</head>
+<body data-page="splash">
+<div x-data="motoApp()" x-init="init()" class="page">
+  <!-- TOASTS -->
+  <div class="toast-container">
+    <template x-for="t in toasts" :key="t.id">
+      <div class="toast" :class="t.type">
+        <i :class="t.type==='success'?'fas fa-check-circle':t.type==='error'?'fas fa-times-circle':'fas fa-info-circle'"></i>
+        <span x-text="t.msg"></span>
+      </div>
+    </template>
+  </div>
+
+  <div class="modal-bg" x-show="editModal" x-cloak>
+    <div class="modal" @click.stop>
+      <h2>Edit Profile</h2>
+      <div class="form-group">
+        <label class="form-label">PROFILE PHOTO</label>
+        <div class="avatar-upload-wrap">
+          <img :src="profileImg" alt="Profile photo" class="avatar-upload-img">
+          <label class="avatar-upload-label">
+            <i class="fas fa-camera"></i> Upload New Photo
+            <input type="file" accept="image/*" style="display:none" @change="onAvatarSelect($event)">
+          </label>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">DISPLAY NAME</label>
+        <div class="input-wrap"><i class="fas fa-user icon"></i><input class="form-input" x-model="editName" placeholder="Your name"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">PHONE NUMBER</label>
+        <div class="input-wrap"><i class="fas fa-phone icon"></i><input class="form-input" x-model="editPhone" placeholder="09xxxxxxxxx"></div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-cancel" @click="editModal=false">Cancel</button>
+        <button class="btn-save" @click="saveEdit()">Save Changes</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SPLASH -->
+  <div class="splash" x-show="page==='splash'" x-cloak @click="page='login'">
+    <div class="splash-inner">
+      <div class="splash-logo"><i class="fas fa-motorcycle"></i></div>
+      <h1>MOTO<span>MATCH</span></h1>
+      <p>FIND &bull; SCAN &bull; REUSE PARTS</p>
+      <div class="splash-cta">TAP TO START</div>
+    </div>
+  </div>
+
+  <!-- LOGIN -->
+  <div class="login-wrap" x-show="page==='login'" x-cloak>
+    <div class="login-card">
+      <div class="login-left">
+        <div class="login-logo"><i class="fas fa-motorcycle"></i></div>
+        <h1>MOTO<br><span>MATCH</span></h1>
+        <p>FIND &bull; SCAN &bull; REUSE</p>
+      </div>
+      <div class="login-right">
+        <h2>Welcome Back</h2>
+        <div class="form-group">
+          <label class="form-label">EMAIL ADDRESS</label>
+          <div class="input-wrap">
+            <i class="fas fa-envelope icon"></i>
+            <input class="form-input" type="email" x-model="loginEmail" placeholder="you@example.com" @keyup.enter="doLogin()">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">PASSWORD</label>
+          <div class="input-wrap">
+            <i class="fas fa-lock icon"></i>
+            <i :class="showPw?'fas fa-eye':'fas fa-eye-slash'" class="eye" @click="showPw=!showPw"></i>
+            <input class="form-input" :type="showPw?'text':'password'" x-model="loginPw" placeholder="••••••••" @keyup.enter="doLogin()">
+          </div>
+        </div>
+        <div x-show="loginErr" class="error-msg" x-text="loginErr"></div>
+        <div class="form-row">
+          <label><input type="checkbox"> Remember me</label>
+          <a href="#">Forgot password?</a>
+        </div>
+        <button class="btn btn-primary" @click="doLogin()">
+          <span x-show="!loginLoading">LOGIN</span>
+          <span x-show="loginLoading"><i class="fas fa-circle-notch spin"></i> Logging in...</span>
+        </button>
+        <div class="or-divider">— or —</div>
+        <button class="btn btn-secondary" @click="doSignUp()">CREATE ACCOUNT</button>
+      </div>
+    </div>
+  </div>
+</div>
+<script src="script.js"></script>
+</body>
+</html>
