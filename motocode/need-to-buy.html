@@ -78,7 +78,22 @@
         <button class="btn-menu" @click="showMenu=!showMenu"><i class="fas fa-bars"></i></button>
         <span class="page-title" x-text="pageTitle()"></span>
         <div class="topbar-right">
-          <button class="topbar-btn" @click="go('settings')"><i class="fas fa-bell"></i></button>
+          <div class="notification-wrap">
+            <button class="topbar-btn notification-btn" @click="toggleNotifications()" title="Notifications">
+              <i class="fas fa-bell"></i>
+              <span class="notification-count" x-show="unreadNotifications()>0" x-text="unreadNotifications()"></span>
+            </button>
+            <div class="notification-panel" x-show="notificationOpen" @click.outside="notificationOpen=false" x-cloak>
+              <div class="notification-head"><strong>Notifications</strong><span x-text="notifications.length+' records'"></span></div>
+              <div class="notification-empty" x-show="notifications.length===0">No activity yet.</div>
+              <template x-for="item in notifications" :key="item.id">
+                <div class="notification-item" :class="item.type">
+                  <i :class="item.type==='success'?'fas fa-check-circle':item.type==='error'?'fas fa-times-circle':'fas fa-info-circle'"></i>
+                  <div><strong x-text="item.message"></strong><small x-text="item.date"></small></div>
+                </div>
+              </template>
+            </div>
+          </div>
           <button class="topbar-btn" @click="go('profile')" style="overflow:hidden;padding:0;">
             <img :src="profileImg" style="width:42px;height:42px;object-fit:cover;border-radius:10px;" alt="">
           </button>
@@ -89,20 +104,39 @@
         <div class="need-layout">
           <section class="need-form-card">
             <span class="eyebrow">Add Part Need / To Buy</span>
-            <h2>Save a shop link for later</h2>
+            <h2 x-text="editingNeedId?'Edit saved item':'Save a shop link for later'"></h2>
             <div class="form-group">
               <label class="form-label">ITEM NAME</label>
               <div class="input-wrap"><i class="fas fa-tag icon"></i><input class="form-input" x-model="needName" placeholder="e.g. Rear brake pad"></div>
             </div>
             <div class="form-group">
-              <label class="form-label">SHOP LINK</label>
+              <label class="form-label">OTHER SHOP LINK</label>
               <div class="input-wrap"><i class="fas fa-link icon"></i><input class="form-input" x-model="needUrl" placeholder="Paste Shopee, Lazada, or other shop link"></div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">SHOPEE LINK</label>
+              <div class="input-wrap"><i class="fas fa-bag-shopping icon"></i><input class="form-input" x-model="needShopeeUrl" placeholder="Paste Shopee link"></div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">LAZADA LINK</label>
+              <div class="input-wrap"><i class="fas fa-cart-shopping icon"></i><input class="form-input" x-model="needLazadaUrl" placeholder="Paste Lazada link"></div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">ITEM PICTURE</label>
+              <div class="need-image-preview" x-show="needImageUrl">
+                <img :src="needImageUrl" alt="Need item preview">
+              </div>
+              <label class="upload-label">
+                <i class="fas fa-image"></i> Upload Picture
+                <input type="file" accept="image/*" style="display:none" @change="onNeedImageSelect($event)">
+              </label>
             </div>
             <div class="form-group">
               <label class="form-label">DESCRIPTION</label>
               <textarea class="form-textarea" x-model="needDesc" placeholder="Notes like size, seller, price, model compatibility, or why you need it"></textarea>
             </div>
-            <button class="btn btn-primary" @click="addNeedItem()"><i class="fas fa-plus"></i> SAVE ITEM</button>
+            <button class="btn btn-primary" @click="addNeedItem()"><i class="fas fa-save"></i> <span x-text="editingNeedId?'UPDATE ITEM':'SAVE ITEM'"></span></button>
+            <button class="btn btn-secondary" x-show="editingNeedId" @click="clearNeedForm()"><i class="fas fa-times"></i> CANCEL EDIT</button>
           </section>
 
           <section class="need-list-card">
@@ -121,12 +155,24 @@
 
             <template x-for="item in needItems.slice().reverse()" :key="item.id">
               <div class="need-item">
-                <button class="need-item-main" @click="openNeedItem(item)">
+                <template x-if="item.imageUrl">
+                  <img class="need-thumb" :src="item.imageUrl" alt="">
+                </template>
+                <div class="need-item-main">
                   <span class="need-item-title" x-text="item.name"></span>
                   <span class="need-item-desc" x-text="item.description||'No description added'"></span>
                   <span class="need-item-date" x-text="item.date"></span>
-                </button>
-                <button class="need-delete" @click="removeNeedItem(item.id)" title="Remove item"><i class="fas fa-trash-alt"></i></button>
+                  <div class="need-link-row">
+                    <a x-show="item.shopeeUrl" :href="item.shopeeUrl" target="_blank" class="need-shop-link shopee">Shopee</a>
+                    <a x-show="item.lazadaUrl" :href="item.lazadaUrl" target="_blank" class="need-shop-link lazada">Lazada</a>
+                    <a x-show="item.url" :href="item.url" target="_blank" class="need-shop-link other">Other</a>
+                  </div>
+                </div>
+                <div class="need-actions">
+                  <button class="need-action-btn" @click="openNeedItem(item)" title="Open link"><i class="fas fa-up-right-from-square"></i></button>
+                  <button class="need-action-btn" @click="retrieveNeedItem(item)" title="Retrieve / edit"><i class="fas fa-pen"></i></button>
+                  <button class="need-delete" @click="removeNeedItem(item.id)" title="Remove item"><i class="fas fa-trash-alt"></i></button>
+                </div>
               </div>
             </template>
           </section>

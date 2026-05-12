@@ -50,7 +50,22 @@
         <button class="btn-menu" @click="showMenu=!showMenu"><i class="fas fa-bars"></i></button>
         <span class="page-title" x-text="pageTitle()"></span>
         <div class="topbar-right">
-          <button class="topbar-btn" @click="go('settings')"><i class="fas fa-bell"></i></button>
+          <div class="notification-wrap">
+            <button class="topbar-btn notification-btn" @click="toggleNotifications()" title="Notifications">
+              <i class="fas fa-bell"></i>
+              <span class="notification-count" x-show="unreadNotifications()>0" x-text="unreadNotifications()"></span>
+            </button>
+            <div class="notification-panel" x-show="notificationOpen" @click.outside="notificationOpen=false" x-cloak>
+              <div class="notification-head"><strong>Notifications</strong><span x-text="notifications.length+' records'"></span></div>
+              <div class="notification-empty" x-show="notifications.length===0">No activity yet.</div>
+              <template x-for="item in notifications" :key="item.id">
+                <div class="notification-item" :class="item.type">
+                  <i :class="item.type==='success'?'fas fa-check-circle':item.type==='error'?'fas fa-times-circle':'fas fa-info-circle'"></i>
+                  <div><strong x-text="item.message"></strong><small x-text="item.date"></small></div>
+                </div>
+              </template>
+            </div>
+          </div>
           <button class="topbar-btn" @click="go('profile')" style="overflow:hidden;padding:0;">
             <img :src="profileImg" style="width:42px;height:42px;object-fit:cover;border-radius:10px;" alt="">
           </button>

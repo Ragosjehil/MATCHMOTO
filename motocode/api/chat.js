@@ -34,7 +34,34 @@ function shopLinks(query) {
 }
 
 function fallbackResult(body) {
-  return notFoundResult('AI could not identify a specific motorcycle part from this photo. Reupload a clearer picture or type the part name, then scan again.');
+  const unitName = cleanText(body?.motorcycle?.unitName) || 'motorcycle';
+  const yearModel = cleanText(body?.motorcycle?.yearModel);
+  const typedPartName = cleanText(body?.typedPartName);
+  const selected = cleanText(body?.partCategory);
+  const partName = typedPartName || (selected && selected.toLowerCase() !== 'unknown part'
+    ? selected
+    : 'motorcycle part');
+  const searchQuery = [unitName, yearModel, partName].filter(Boolean).join(' ');
+  const links = shopLinks(searchQuery);
+
+  return {
+    status: 'found',
+    partName,
+    description: `MotoMatch prepared best-match online searches for ${searchQuery}. Compare the uploaded photo with seller photos before buying.`,
+    searchQuery,
+    compatibility: 'Best-match shopping links ready',
+    confidence: typedPartName ? 58 : 38,
+    fitmentNotes: [
+      'This is a best-match result when the image is unclear or live AI is unavailable.',
+      'Compare shape, side, mounting points, color, and size with the old part before checkout.',
+      'Typing the part name can make the next scan more specific.',
+    ],
+    sdgImpact: '',
+    shopeeUrl: links[0].url,
+    lazadaUrl: links[1].url,
+    otherShopLinks: links.slice(2),
+    shopLinks: links,
+  };
 }
 
 function notFoundResult(description) {
@@ -49,6 +76,27 @@ function notFoundResult(description) {
       'Reupload a clearer, well-lit photo.',
       'Make sure the part fills most of the frame.',
       'Type the part name if you know it, then scan again.',
+    ],
+    sdgImpact: '',
+    shopeeUrl: '',
+    lazadaUrl: '',
+    otherShopLinks: [],
+    shopLinks: [],
+  };
+}
+
+function notMotorcyclePartResult(description) {
+  return {
+    status: 'not_a_part',
+    partName: 'Item not a part of motorcycle',
+    description: description || 'Item not a part of motorcycle. Please retake photo or reupload.',
+    searchQuery: '',
+    compatibility: 'Not a motorcycle part',
+    confidence: 0,
+    fitmentNotes: [
+      'Retake the photo with only the motorcycle part in the frame.',
+      'Reupload a clear photo if you selected the wrong image.',
+      'Typed part names cannot override a non-motorcycle photo.',
     ],
     sdgImpact: '',
     shopeeUrl: '',
@@ -80,16 +128,7 @@ function normalizeResult(result, body) {
   const searchQuery = cleanText(result?.searchQuery || result?.search_query)
     || [body?.motorcycle?.unitName, body?.motorcycle?.yearModel, partName].map(cleanText).filter(Boolean).join(' ')
     || fallback.searchQuery;
-  const nonPartPattern = /paper|document|receipt|book|notebook|page|text|letter|card|poster|screen|person|face|hand|food|bottle/i;
-  const unusable = status === 'fail'
-    || status === 'not_a_part'
-    || status === 'not motorcycle part'
-    || /not found/i.test(partName)
-    || nonPartPattern.test(partName)
-    || nonPartPattern.test(searchQuery)
-    || !searchQuery
-    || /^(unknown|unclear|part)$/i.test(partName);
-  if (unusable) {
+  if (status === 'fail' && !searchQuery) {
     return notFoundResult(cleanText(result?.description));
   }
   const links = shopLinks(searchQuery);
@@ -135,6 +174,7 @@ async function identifyWithGemini(body) {
     'You are MotoMatch, a motorcycle parts shopping assistant for riders in the Philippines.',
     'Identify the visible motorcycle part from the image and create online-shopping search guidance.',
     'Return only valid JSON with keys: status, partName, description, searchQuery, compatibility, confidence, fitmentNotes, sdgImpact.',
+    'Allowed status values are found and fail.',
     `Known motorcycle: ${unitName} ${yearModel}.`,
     `Optional typed parts name from user: ${typedPartName}.`,
     `Old selected part category, if any: ${partCategory}. User mode: ${mode}.`,
@@ -142,11 +182,10 @@ async function identifyWithGemini(body) {
     'Use the typed parts name as an optional hint when provided, but rely on the image and correct it if the image clearly shows a different part.',
     'If any motorcycle part or likely replacement part is visible, ALWAYS set status to found and give the best specific part name you can infer, even when the photo is blurry, cropped, dark, or partially blocked.',
     'Never return a generic partName like unknown, unclear, part, or motorcycle part when any visible shape can support a practical guess.',
-    'If the photo shows paper, a document, text, receipt, notebook, card, person, food, or any non-motorcycle object, set status to fail and partName to Item not found.',
     'Build searchQuery for Shopee Philippines: motorcycle brand/model/year + precise part name + useful visible variant such as left/right, front/rear, color, assembly, cable, lever, cover, fairing, or light when visible.',
     'Keep searchQuery short enough for Shopee and Lazada search boxes.',
     'In fitmentNotes, tell the user what to compare in seller listings: mounting holes, plug/socket, side, shape, size, color, part code, and model-year compatibility.',
-    'Only use status fail when the photo has no visible object, is unreadable, or clearly does not show a motorcycle/replacement part.',
+    'Only use status fail when the photo has no visible object or is unreadable.',
     'Do not invent OEM part numbers unless visible in the image.',
   ].join('\n');
 

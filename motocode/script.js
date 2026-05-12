@@ -45,8 +45,9 @@ function motoApp(){
     typedPartName:'', partCategory:'Unknown part', scanMode:'owner',
     cameraActive:false, cameraStream:null,
     scanResult:{partName:'',description:'',compatibility:'',confidence:0,fitmentNotes:[],sdgImpact:'',shopeeUrl:'',lazadaUrl:''},
-    scanHistory:[], needItems:[], brokenParts:[], needName:'', needDesc:'', needUrl:'', brokenName:'', brokenImageUrl:'', brokenImageBase64:'', brokenMimeType:'image/jpeg',
+    scanHistory:[], needItems:[], brokenParts:[], needName:'', needDesc:'', needUrl:'', needShopeeUrl:'', needLazadaUrl:'', needImageUrl:'', needImageBase64:'', editingNeedId:null, brokenName:'', brokenImageUrl:'', brokenImageBase64:'', brokenMimeType:'image/jpeg',
     brokenCameraActive:false, brokenCameraStream:null,
+    notifications:[], notificationOpen:false,
     notif:true, emailNotif:true, priceAlert:false, darkMode:true, newPw:'', user:null,
 
     async init(){
@@ -101,7 +102,8 @@ function motoApp(){
                 darkMode:data.darkMode!==undefined?data.darkMode:true,
                 scanHistory:data.scanHistory||[],
                 needItems:data.needItems||[],
-                brokenParts:data.brokenParts||[]
+                brokenParts:data.brokenParts||[],
+                notifications:Array.isArray(data.notifications)?data.notifications:this.notifications
               });
             }
             this.saveLocalState();
@@ -134,6 +136,7 @@ function motoApp(){
         scanHistory:this.scanHistory,
         needItems:this.needItems,
         brokenParts:this.brokenParts,
+        notifications:this.notifications,
         lastUpdated:new Date()
       },{merge:true}).catch(e=>console.error('Save failed:',e));
     },
@@ -156,7 +159,8 @@ function motoApp(){
         darkMode:this.darkMode,
         scanHistory:this.scanHistory,
         needItems:this.needItems,
-        brokenParts:this.brokenParts
+        brokenParts:this.brokenParts,
+        notifications:this.notifications
       };
     },
 
@@ -186,7 +190,8 @@ function motoApp(){
           darkMode:data.darkMode!==undefined?data.darkMode:this.darkMode,
           scanHistory:Array.isArray(data.scanHistory)?data.scanHistory:this.scanHistory,
           needItems:Array.isArray(data.needItems)?data.needItems:this.needItems,
-          brokenParts:Array.isArray(data.brokenParts)?data.brokenParts:this.brokenParts
+          brokenParts:Array.isArray(data.brokenParts)?data.brokenParts:this.brokenParts,
+          notifications:Array.isArray(data.notifications)?data.notifications:this.notifications
         });
       }catch(e){console.warn('Local load failed:',e);}
       this.applyTheme();
@@ -241,6 +246,34 @@ function motoApp(){
     pageTitle(){return {dashboard:'MotoMatch Dashboard',scanner:'Find Parts Online',need:'Need To Buy',broken:'Broken Parts',profile:'Profile',settings:'Settings'}[this.page]||'';},
     removeHistory(id){this.scanHistory=this.scanHistory.filter(item=>item.id!==id);this.save();},
 
+    unreadNotifications(){
+      return this.notifications.filter(item=>!item.read).length;
+    },
+
+    toggleNotifications(){
+      this.notificationOpen=!this.notificationOpen;
+      if(this.notificationOpen)this.markNotificationsRead();
+    },
+
+    markNotificationsRead(){
+      if(!this.notifications.some(item=>!item.read))return;
+      this.notifications=this.notifications.map(item=>({...item,read:true}));
+      this.save();
+    },
+
+    addNotification(message,type='info'){
+      if(!message||!this.notif)return;
+      this.notifications.unshift({
+        id:Date.now()+Math.random(),
+        message,
+        type,
+        read:false,
+        date:new Date().toLocaleString()
+      });
+      this.notifications=this.notifications.slice(0,100);
+      this.save();
+    },
+
     defaultProfileImage(){
       return 'https://i.pravatar.cc/150?u=motomatch';
     },
@@ -271,29 +304,87 @@ function motoApp(){
     addNeedItem(){
       const name=(this.needName||'').trim();
       const url=this.cleanUrl(this.needUrl);
+      const shopeeUrl=this.cleanUrl(this.needShopeeUrl);
+      const lazadaUrl=this.cleanUrl(this.needLazadaUrl);
       if(!name){this.toast('Add an item name first.','error');return;}
-      if(!url){this.toast('Paste the Shopee, Lazada, or shop link.','error');return;}
-      try{new URL(url);}catch(e){this.toast('Please enter a valid shop link.','error');return;}
-      this.needItems.push({
-        id:Date.now(),
+      if(!url&&!shopeeUrl&&!lazadaUrl){this.toast('Paste a Shopee, Lazada, or other shop link.','error');return;}
+      for(const link of [url,shopeeUrl,lazadaUrl].filter(Boolean)){
+        try{new URL(link);}catch(e){this.toast('Please enter valid shop links.','error');return;}
+      }
+      const item={
+        id:this.editingNeedId||Date.now(),
         name,
         description:(this.needDesc||'').trim(),
         url,
+        shopeeUrl,
+        lazadaUrl,
+        imageUrl:this.needImageUrl,
+        imageBase64:this.needImageBase64,
         date:new Date().toLocaleString()
-      });
-      this.needName='';this.needDesc='';this.needUrl='';
+      };
+      if(this.editingNeedId){
+        this.needItems=this.needItems.map(existing=>existing.id===this.editingNeedId?{...existing,...item}:existing);
+        this.addNotification(`Updated Need To Buy item: ${name}`,'success');
+        this.toast('Need To Buy item updated.','success');
+      }else{
+        this.needItems.push(item);
+        this.addNotification(`Added to Need To Buy: ${name}`,'success');
+        this.toast('Item saved to Need To Buy.','success');
+      }
+      this.clearNeedForm();
       this.save();
-      this.toast('Item saved to Need To Buy.','success');
     },
 
     removeNeedItem(id){
+      const removed=this.needItems.find(item=>item.id===id);
       this.needItems=this.needItems.filter(item=>item.id!==id);
       this.save();
+      if(removed)this.addNotification(`Removed Need To Buy item: ${removed.name}`,'info');
       this.toast('Item removed.','info');
     },
 
     openNeedItem(item){
-      if(item&&item.url)window.open(item.url,'_blank','noopener');
+      const url=item&&(item.shopeeUrl||item.lazadaUrl||item.url);
+      if(url){
+        this.addNotification(`Opened Need To Buy item: ${item.name}`,'info');
+        window.open(url,'_blank','noopener');
+      }
+    },
+
+    retrieveNeedItem(item){
+      if(!item)return;
+      this.editingNeedId=item.id;
+      this.needName=item.name||'';
+      this.needDesc=item.description||'';
+      this.needUrl=item.url||'';
+      this.needShopeeUrl=item.shopeeUrl||'';
+      this.needLazadaUrl=item.lazadaUrl||'';
+      this.needImageUrl=item.imageUrl||'';
+      this.needImageBase64=item.imageBase64||'';
+      this.addNotification(`Retrieved Need To Buy item: ${item.name}`,'info');
+      this.toast('Item loaded for editing.','info');
+    },
+
+    clearNeedForm(){
+      this.editingNeedId=null;
+      this.needName='';
+      this.needDesc='';
+      this.needUrl='';
+      this.needShopeeUrl='';
+      this.needLazadaUrl='';
+      this.needImageUrl='';
+      this.needImageBase64='';
+    },
+
+    async onNeedImageSelect(e){
+      const f=e.target.files[0];if(!f)return;
+      if(f.size>5*1024*1024){this.toast('Image too large. Max 5MB.','error');return;}
+      try{
+        this.needImageUrl=await this.imageFileToDataUrl(f,900,.82);
+        this.needImageBase64=this.needImageUrl.split(',')[1]||'';
+      }catch(err){
+        this.toast('Could not read that image. Try another photo.','error');
+      }
     },
 
     async onBrokenImageSelect(e){
@@ -368,6 +459,7 @@ function motoApp(){
       this.brokenName='';this.brokenImageUrl='';this.brokenImageBase64='';this.brokenMimeType='image/jpeg';
       this.stopBrokenCamera();
       this.save();
+      this.addNotification(`Listed broken part: ${name}`,'success');
       this.toast('Broken part saved to your list. Tap it when you are ready to scan.','success');
     },
 
@@ -412,6 +504,10 @@ function motoApp(){
         this.needName=draft.name||'';
         this.needDesc=draft.description||'';
         this.needUrl=draft.url||'';
+        this.needShopeeUrl=draft.shopeeUrl||'';
+        this.needLazadaUrl=draft.lazadaUrl||'';
+        this.needImageUrl=draft.imageUrl||'';
+        this.needImageBase64=draft.imageBase64||'';
       }catch(e){}
       sessionStorage.removeItem('needDraft');
     },
@@ -440,17 +536,24 @@ function motoApp(){
     },
 
     useScanLink(url){
+      const isShopee=/shopee/i.test(url||'');
+      const isLazada=/lazada/i.test(url||'');
       sessionStorage.setItem('needDraft',JSON.stringify({
         name:this.scanResult.partName||'Motorcycle part',
         description:this.scanResult.description||'',
-        url:url||this.scanResult.shopeeUrl||''
+        url:(!isShopee&&!isLazada)?(url||''):'',
+        shopeeUrl:isShopee?url:(this.scanResult.shopeeUrl||''),
+        lazadaUrl:isLazada?url:(this.scanResult.lazadaUrl||''),
+        imageUrl:this.previewUrl||'',
+        imageBase64:this.previewBase64||''
       }));
       this.go('need');
     },
 
-    toast(msg,type='info'){
+    toast(msg,type='info',options={}){
       const id=Date.now();
       this.toasts.push({id,msg,type});
+      if(options.record===true)this.addNotification(msg,type);
       setTimeout(()=>{this.toasts=this.toasts.filter(t=>t.id!==id);},3500);
     },
 
@@ -462,6 +565,12 @@ function motoApp(){
       this.darkMode=!this.darkMode;
       this.applyTheme();
       this.save();
+    },
+
+    saveUnitDetails(){
+      this.save();
+      this.addNotification('Motorcycle information updated.','success');
+      this.toast('Motorcycle information saved.','success');
     },
 
     switchAuthMode(mode){
@@ -501,6 +610,7 @@ function motoApp(){
         scanHistory:[],
         needItems:[],
         brokenParts:[],
+        notifications:[],
         createdAt:new Date()
       };
     },
@@ -650,7 +760,7 @@ function motoApp(){
       await this.onAvatarSelect(e);
       const file=e.target.files&&e.target.files[0];
       if(file){
-        this.uploadAvatar(file).then(()=>this.toast('Profile picture saved.','success')).catch(()=>{});
+        this.uploadAvatar(file).then(()=>{this.addNotification('Profile picture updated.','success');this.toast('Profile picture saved.','success');}).catch(()=>{});
       }
     },
 
@@ -691,6 +801,7 @@ function motoApp(){
         return;
       }
       if(!this.user||!storage){
+        this.addNotification('Motorcycle photo updated.','success');
         this.toast('Motorcycle photo saved on this device.','success');
         return;
       }
@@ -706,7 +817,7 @@ function motoApp(){
         },
         ()=>{
           uploadTask.snapshot.ref.getDownloadURL().then(url=>{
-            this.unitImg=url;this.save();this.toast('Motorcycle photo saved!','success');
+            this.unitImg=url;this.save();this.addNotification('Motorcycle photo updated.','success');this.toast('Motorcycle photo saved!','success');
           }).catch(err=>{this.toast('Photo saved locally but URL failed','error');console.error(err);});
         }
       );
@@ -724,16 +835,18 @@ function motoApp(){
       if(this.editAvatarFile){
         try{
           await this.uploadAvatar(this.editAvatarFile);
+          this.addNotification('Profile information updated.','success');
           this.toast('Profile saved!','success');
         }catch(err){
           this.saveLocalState();
+          this.addNotification('Profile information updated.','success');
           this.toast('Profile saved on this device.','success');
         }finally{
           this.editModal=false;
           this.editAvatarFile=null;
         }
       }else{
-        this.editModal=false;this.toast('Profile saved!','success');
+        this.editModal=false;this.addNotification('Profile information updated.','success');this.toast('Profile saved!','success');
       }
     },
 
@@ -741,7 +854,7 @@ function motoApp(){
       if(!this.newPw||this.newPw.length<6){this.toast('Password must be at least 6 characters.','error');return;}
       if(!auth||!auth.currentUser){this.toast('Not logged in.','error');return;}
       auth.currentUser.updatePassword(this.newPw)
-        .then(()=>{this.newPw='';this.toast('Password changed successfully!','success');})
+        .then(()=>{this.newPw='';this.addNotification('Password changed successfully.','success');this.toast('Password changed successfully!','success');})
         .catch(err=>{
           if(err.code==='auth/requires-recent-login'){
             this.toast('Please log out and log back in first, then try again.','error');
@@ -777,7 +890,7 @@ function motoApp(){
 
     clearHistory(){
       if(!confirm('Clear all scan history? This cannot be undone.'))return;
-      this.scanHistory=[];this.save();this.toast('Scan history cleared.','info');
+      this.scanHistory=[];this.save();this.addNotification('Scan history cleared.','info');this.toast('Scan history cleared.','info');
     },
 
     async onFileSelect(e){
@@ -883,7 +996,30 @@ function motoApp(){
     },
 
     fallbackScanResult(){
-      return this.notFoundScanResult('AI could not identify a specific motorcycle part from this photo. Reupload a clearer picture or type the part name, then scan again.');
+      const model=this.unitName||'motorcycle';
+      const year=this.yearModel||'';
+      const typed=(this.typedPartName||'').trim();
+      const category=typed||(this.partCategory==='Unknown part'?'motorcycle part':this.partCategory);
+      const searchQuery=`${model} ${year} ${category}`.replace(/\s+/g,' ').trim();
+      const links=this.shoppingLinksFromQuery(searchQuery);
+      return {
+        status:'found',
+        partName:category,
+        description:`MotoMatch prepared best-match online searches for ${searchQuery}. Compare the uploaded photo with seller photos before buying.`,
+        searchQuery,
+        compatibility:'Best-match shopping links ready',
+        confidence:typed?58:38,
+        fitmentNotes:[
+          'This is a best-match result when the image is unclear or live AI is unavailable.',
+          'Compare shape, side, mounting points, color, and size with the old part before checkout.',
+          'Typing the part name can make the next scan more specific.'
+        ],
+        sdgImpact:'',
+        shopeeUrl:links[0].url,
+        lazadaUrl:links[1].url,
+        otherShopLinks:links.slice(2),
+        shopLinks:links
+      };
     },
 
     notFoundScanResult(description){
@@ -907,6 +1043,27 @@ function motoApp(){
       };
     },
 
+    notMotorcyclePartScanResult(description){
+      return {
+        status:'not_a_part',
+        partName:'Item not a part of motorcycle',
+        description:description||'Item not a part of motorcycle. Please retake photo or reupload.',
+        searchQuery:'',
+        compatibility:'Not a motorcycle part',
+        confidence:0,
+        fitmentNotes:[
+          'Retake the photo with only the motorcycle part in the frame.',
+          'Reupload a clear photo if you selected the wrong image.',
+          'Typed part names cannot override a non-motorcycle photo.'
+        ],
+        sdgImpact:'',
+        shopeeUrl:'',
+        lazadaUrl:'',
+        otherShopLinks:[],
+        shopLinks:[]
+      };
+    },
+
     normalizeScanResult(data){
       const fallback=this.fallbackScanResult();
       const raw=data&&data.result?data.result:data;
@@ -915,16 +1072,7 @@ function motoApp(){
       const status=(raw.status||'').toString().toLowerCase();
       const partName=raw.partName||raw.part_name||fallback.partName;
       const searchQuery=raw.searchQuery||raw.search_query||this.buildSearchQuery(partName);
-      const nonPartPattern=/paper|document|receipt|book|notebook|page|text|letter|card|poster|screen|person|face|hand|food|bottle/i;
-      const unusable=status==='fail'
-        || status==='not_a_part'
-        || status==='not motorcycle part'
-        || /not found/i.test(partName)
-        || nonPartPattern.test(partName)
-        || nonPartPattern.test(searchQuery)
-        || !searchQuery
-        || /^(unknown|unclear|part)$/i.test(partName);
-      if(unusable){
+      if(status==='fail'&&!searchQuery){
         const result=this.notFoundScanResult(raw.description);
         result.confidence=confidence;
         result.fitmentNotes=Array.isArray(raw.fitmentNotes)?raw.fitmentNotes:result.fitmentNotes;
@@ -1000,8 +1148,9 @@ function motoApp(){
         console.warn('AI route unavailable, using local shopping links:',err);
         this.scanResult=this.fallbackScanResult();
         await this.keepScanAnimationVisible(scanStartedAt);
-        this.scanStatus='fail';
-        this.toast('Item not found. Reupload and scan again.','error');
+        this.scanStatus='found';
+        this.saveScanResult(this.scanResult,'found');
+        this.toast('Best-match shop links are ready.','info');
       }
     },
 
