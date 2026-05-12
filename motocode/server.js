@@ -2,6 +2,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const chatHandler = require('./api/chat');
+const firebaseConfigHandler = require('./api/firebase-config');
 
 const root = __dirname;
 const port = process.env.PORT || 3000;
@@ -28,7 +29,8 @@ function readBody(req) {
     });
     req.on('end', () => {
       try {
-        resolve(body ? JSON.parse(body) : {});
+        const cleanBody = body.replace(/^\uFEFF/, '').trim();
+        resolve(cleanBody ? JSON.parse(cleanBody) : {});
       } catch (error) {
         reject(error);
       }
@@ -51,6 +53,11 @@ function createResponse(res) {
 }
 
 const server = http.createServer(async (req, res) => {
+  if (req.url === '/api/firebase-config') {
+    await firebaseConfigHandler(req, createResponse(res));
+    return;
+  }
+
   if (req.url === '/api/chat') {
     try {
       req.body = await readBody(req);

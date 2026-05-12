@@ -1,23 +1,26 @@
-// Firebase Configuration
-const firebaseConfig = {
-  apiKey: "AIzaSyCK3X24HuDH1IggdENSDADU0ubrBsnk_4s",
-  authDomain: "matchcodemoto.firebaseapp.com",
-  projectId: "matchcodemoto",
-  storageBucket: "matchcodemoto.appspot.com",
-  messagingSenderId: "864873199872",
-  appId: "1:864873199872:web:4e18c4a1526b2ed5bcdbe5",
-  measurementId: "G-MLNZV08JRR"
-};
-
+let firebaseConfig = null;
 let auth, db, storage;
-function initFirebase(){
+
+async function loadFirebaseConfig(){
+  if(firebaseConfig)return firebaseConfig;
+  const res=await fetch('/api/firebase-config');
+  const config=await res.json();
+  if(!res.ok){
+    throw new Error(config.error || 'Firebase configuration is missing.');
+  }
+  firebaseConfig=config;
+  return firebaseConfig;
+}
+
+async function initFirebase(){
   if(typeof firebase==='undefined'){
     console.error('Firebase SDK not loaded yet');
     return false;
   }
   try{
+    const config=await loadFirebaseConfig();
     if(!firebase.apps.length){
-      firebase.initializeApp(firebaseConfig);
+      firebase.initializeApp(config);
     }
     auth=firebase.auth();
     db=firebase.firestore();
@@ -26,35 +29,46 @@ function initFirebase(){
     return true;
   }catch(err){
     console.error('Firebase initialization failed:',err);
-    return false;
+    throw err;
   }
 }
 
 function motoApp(){
   return {
     page:(document.body.dataset.page || 'splash'), showMenu:false, toasts:[],
-    loginEmail:'', loginPw:'', showPw:false, loginErr:'', loginLoading:false,
+    authMode:'login', loginEmail:'', loginPw:'', signupEmail:'', signupPw:'', signupConfirmPw:'',
+    showPw:false, showSignupPw:false, loginErr:'', loginLoading:false,
     userName:'Rider', userEmail:'', userPhone:'', profileImg:'https://i.pravatar.cc/150?u=motomatch',
     unitName:'', yearModel:'', unitImg:'https://images.unsplash.com/photo-1558981403-c5f9899a28bc?auto=format&fit=crop&q=80&w=600',
     editModal:false, editName:'', editPhone:'', editUnit:'', editYear:'', editAvatarFile:null, tempImg:null,
     previewUrl:'', previewBase64:'', scanStatus:'idle', previewMimeType:'image/jpeg',
-    partCategory:'Unknown part', scanMode:'owner',
+    typedPartName:'', partCategory:'Unknown part', scanMode:'owner',
     cameraActive:false, cameraStream:null,
     scanResult:{partName:'',description:'',compatibility:'',confidence:0,fitmentNotes:[],sdgImpact:'',shopeeUrl:'',lazadaUrl:''},
     scanHistory:[], needItems:[], brokenParts:[], needName:'', needDesc:'', needUrl:'', brokenName:'', brokenImageUrl:'', brokenImageBase64:'', brokenMimeType:'image/jpeg',
     brokenCameraActive:false, brokenCameraStream:null,
     notif:true, emailNotif:true, priceAlert:false, darkMode:true, newPw:'', user:null,
 
-    init(){
+    async init(){
       this.loadLocalState();
+      this.applyTheme();
+      this.loadNeedDraft();
+      this.loadScanDraft();
       if(typeof firebase==='undefined'){
+        this.loginErr='Loading Firebase SDK...';
         setTimeout(()=>this.init(),300);
         return;
       }
-      if(!initFirebase()){
-        setTimeout(()=>this.init(),300);
+      try{
+        if(!await initFirebase()){
+          this.loginErr='Firebase setup is not ready. Check the Vercel environment variables.';
+          return;
+        }
+      }catch(err){
+        this.loginErr=err.message||'Firebase setup is not ready. Check the Vercel environment variables.';
         return;
       }
+      this.loginErr='';
       // Test storage connection
       if(storage){
         try{
@@ -65,10 +79,11 @@ function motoApp(){
       }else{
         console.error('Firebase Storage NOT initialized');
       }
-      auth.onAuthStateChanged(async(user)=>{
+    auth.onAuthStateChanged(async(user)=>{
         if(user){
           this.user=user;
           this.userEmail=user.email;
+          this.loadLocalState(this.userStateKey());
           try{
             const userDoc=await db.collection('users').doc(user.uid).get();
             if(userDoc.exists){
@@ -76,10 +91,10 @@ function motoApp(){
               Object.assign(this,{
                 userName:data.userName||'Rider',
                 userPhone:data.userPhone||'',
-                profileImg:data.profileImg||this.profileImg,
+                profileImg:this.preferSavedImage(data.profileImg,this.profileImg,this.defaultProfileImage()),
                 unitName:data.unitName||'',
                 yearModel:data.yearModel||'',
-                unitImg:data.unitImg||this.unitImg,
+                unitImg:this.preferSavedImage(data.unitImg,this.unitImg,this.defaultUnitImage()),
                 notif:data.notif!==undefined?data.notif:true,
                 emailNotif:data.emailNotif!==undefined?data.emailNotif:true,
                 priceAlert:data.priceAlert||false,
@@ -89,9 +104,8 @@ function motoApp(){
                 brokenParts:data.brokenParts||[]
               });
             }
+            this.saveLocalState();
             this.applyTheme();
-            this.loadNeedDraft();
-            this.loadScanDraft();
             this.redirectAfterAuth();
           }catch(e){
             console.error('Error loading user data:',e);
@@ -124,6 +138,10 @@ function motoApp(){
       },{merge:true}).catch(e=>console.error('Save failed:',e));
     },
 
+    userStateKey(){
+      return this.user&&this.user.uid?`motomatchState:${this.user.uid}`:'motomatchState';
+    },
+
     localState(){
       return {
         userName:this.userName,
@@ -143,12 +161,16 @@ function motoApp(){
     },
 
     saveLocalState(){
-      try{localStorage.setItem('motomatchState',JSON.stringify(this.localState()));}catch(e){}
+      try{
+        const state=JSON.stringify(this.localState());
+        localStorage.setItem('motomatchState',state);
+        if(this.user&&this.user.uid)localStorage.setItem(this.userStateKey(),state);
+      }catch(e){console.warn('Local save failed:',e);}
     },
 
-    loadLocalState(){
+    loadLocalState(key='motomatchState'){
       try{
-        const raw=localStorage.getItem('motomatchState');
+        const raw=localStorage.getItem(key);
         if(!raw)return;
         const data=JSON.parse(raw);
         Object.assign(this,{
@@ -166,8 +188,32 @@ function motoApp(){
           needItems:Array.isArray(data.needItems)?data.needItems:this.needItems,
           brokenParts:Array.isArray(data.brokenParts)?data.brokenParts:this.brokenParts
         });
-      }catch(e){}
+      }catch(e){console.warn('Local load failed:',e);}
       this.applyTheme();
+    },
+
+    imageFileToDataUrl(file,maxSize=1200,quality=.82){
+      return new Promise((resolve,reject)=>{
+        const reader=new FileReader();
+        reader.onerror=reject;
+        reader.onload=()=>{
+          const img=new Image();
+          img.onerror=reject;
+          img.onload=()=>{
+            const ratio=Math.min(1,maxSize/Math.max(img.width,img.height));
+            const width=Math.max(1,Math.round(img.width*ratio));
+            const height=Math.max(1,Math.round(img.height*ratio));
+            const canvas=document.createElement('canvas');
+            canvas.width=width;
+            canvas.height=height;
+            const ctx=canvas.getContext('2d');
+            ctx.drawImage(img,0,0,width,height);
+            resolve(canvas.toDataURL('image/jpeg',quality));
+          };
+          img.src=reader.result;
+        };
+        reader.readAsDataURL(file);
+      });
     },
 
     go(p){
@@ -194,6 +240,19 @@ function motoApp(){
     },
     pageTitle(){return {dashboard:'MotoMatch Dashboard',scanner:'Find Parts Online',need:'Need To Buy',broken:'Broken Parts',profile:'Profile',settings:'Settings'}[this.page]||'';},
     removeHistory(id){this.scanHistory=this.scanHistory.filter(item=>item.id!==id);this.save();},
+
+    defaultProfileImage(){
+      return 'https://i.pravatar.cc/150?u=motomatch';
+    },
+
+    defaultUnitImage(){
+      return 'https://images.unsplash.com/photo-1558981403-c5f9899a28bc?auto=format&fit=crop&q=80&w=600';
+    },
+
+    preferSavedImage(remote,current,defaultValue){
+      if(current&&current!==defaultValue&&(!remote||remote===defaultValue))return current;
+      return remote||current||defaultValue;
+    },
 
     compatibleCount(){return this.scanHistory.filter(item=>item.compatibility==='Compatible').length;},
     preventedReturns(){return this.scanHistory.length;},
@@ -237,16 +296,16 @@ function motoApp(){
       if(item&&item.url)window.open(item.url,'_blank','noopener');
     },
 
-    onBrokenImageSelect(e){
+    async onBrokenImageSelect(e){
       const f=e.target.files[0];if(!f)return;
       if(f.size>5*1024*1024){this.toast('Image too large. Max 5MB.','error');return;}
-      this.brokenMimeType=f.type||'image/jpeg';
-      const r=new FileReader();
-      r.onload=ev=>{
-        this.brokenImageUrl=ev.target.result;
-        this.brokenImageBase64=ev.target.result.split(',')[1];
-      };
-      r.readAsDataURL(f);
+      try{
+        this.brokenMimeType='image/jpeg';
+        this.brokenImageUrl=await this.imageFileToDataUrl(f,1200,.82);
+        this.brokenImageBase64=this.brokenImageUrl.split(',')[1];
+      }catch(err){
+        this.toast('Could not read that image. Try another photo.','error');
+      }
     },
 
     startBrokenCamera(){
@@ -309,8 +368,7 @@ function motoApp(){
       this.brokenName='';this.brokenImageUrl='';this.brokenImageBase64='';this.brokenMimeType='image/jpeg';
       this.stopBrokenCamera();
       this.save();
-      this.toast('Broken part saved. Opening scanner.','success');
-      this.scanBrokenPart(item);
+      this.toast('Broken part saved to your list. Tap it when you are ready to scan.','success');
     },
 
     removeBrokenPart(id){
@@ -326,7 +384,9 @@ function motoApp(){
         previewBase64:item.imageBase64||(item.imageUrl.split(',')[1]||''),
         previewMimeType:item.mimeType||'image/jpeg',
         partCategory:this.guessPartCategory(item.name),
-        savedPartName:item.name||''
+        typedPartName:item.name||'',
+        savedPartName:item.name||'',
+        autoScan:true
       }));
       this.go('scanner');
     },
@@ -366,10 +426,14 @@ function motoApp(){
         this.previewBase64=draft.previewBase64||'';
         this.previewMimeType=draft.previewMimeType||'image/jpeg';
         this.partCategory=draft.partCategory||'Unknown part';
+        this.typedPartName=draft.typedPartName||draft.savedPartName||this.typedPartName;
         this.scanStatus='idle';
         this.scanResult={partName:'',description:'',compatibility:'',confidence:0,fitmentNotes:[],sdgImpact:'',shopeeUrl:'',lazadaUrl:''};
-        if(draft.savedPartName){
-          this.toast(`${draft.savedPartName} photo loaded. Click Find This Part Online.`, 'info');
+        if(draft.autoScan&&this.previewBase64){
+          this.toast(`${draft.savedPartName||'Saved part'} photo loaded. Scanning now.`, 'info');
+          this.$nextTick(()=>this.doScan());
+        }else if(draft.savedPartName){
+          this.toast(`${draft.savedPartName} photo loaded. Click Scan.`, 'info');
         }
       }catch(e){}
       sessionStorage.removeItem('scanDraft');
@@ -400,33 +464,163 @@ function motoApp(){
       this.save();
     },
 
-    doLogin(){
-      if(!auth){this.loginErr='Firebase not ready';return;}
-      if(!this.loginEmail||!this.loginPw){this.loginErr='Please enter email and password.';return;}
-      this.loginLoading=true;
-      auth.signInWithEmailAndPassword(this.loginEmail,this.loginPw)
-        .then(()=>{this.loginErr='';this.loginLoading=false;this.toast('Welcome back!','success');})
-        .catch(err=>{this.loginErr=err.message||'Login failed';this.loginLoading=false;});
+    switchAuthMode(mode){
+      this.authMode=mode;
+      this.loginErr='';
+      if(mode==='signup'&&this.loginEmail&&!this.signupEmail){
+        this.signupEmail=this.loginEmail;
+      }
     },
 
-    doSignUp(){
+    passwordStrength(password){
+      let score=0;
+      if(password.length>=8)score++;
+      if(/[A-Z]/.test(password))score++;
+      if(/[a-z]/.test(password))score++;
+      if(/\d/.test(password))score++;
+      if(/[^A-Za-z0-9]/.test(password))score++;
+      if(!password)return {label:'Enter a password',className:'empty',score:0};
+      if(score<=2)return {label:'Weak password',className:'weak',score};
+      if(score<=4)return {label:'Good password',className:'good',score};
+      return {label:'Strong password',className:'strong',score};
+    },
+
+    defaultUserProfile(user, displayName){
+      return {
+        userName:displayName,
+        userEmail:user.email||'',
+        userPhone:'',
+        profileImg:user.photoURL||this.profileImg,
+        unitName:'',
+        yearModel:'',
+        unitImg:this.unitImg,
+        notif:true,
+        emailNotif:true,
+        priceAlert:false,
+        darkMode:this.darkMode,
+        scanHistory:[],
+        needItems:[],
+        brokenParts:[],
+        createdAt:new Date()
+      };
+    },
+
+    authErrorMessage(err){
+      const messages={
+        'auth/email-already-in-use':'This email already has an account. Try logging in instead.',
+        'auth/invalid-email':'Please enter a valid email address.',
+        'auth/invalid-login-credentials':'Email or password is incorrect.',
+        'auth/user-not-found':'No account was found for this email.',
+        'auth/wrong-password':'Email or password is incorrect.',
+        'auth/weak-password':'Password must be at least 6 characters.',
+        'auth/operation-not-allowed':'This sign-in method is not enabled in Firebase.',
+        'auth/too-many-requests':'Too many attempts. Please wait a moment and try again.',
+        'auth/network-request-failed':'Network error. Please check your connection.',
+        'permission-denied':'Firebase database permission denied. Check Firestore rules.'
+      };
+      return messages[err?.code] || err?.message || 'Authentication failed. Please try again.';
+    },
+
+    async doLogin(){
       if(!auth){this.loginErr='Firebase not ready';return;}
-      if(!this.loginEmail||!this.loginPw){this.loginErr='Please enter email and password.';return;}
-      if(this.loginPw.length<6){this.loginErr='Password must be at least 6 characters.';return;}
+      const email=this.loginEmail.trim();
+      if(!email||!this.loginPw){this.loginErr='Please enter email and password.';return;}
       this.loginLoading=true;
-      auth.createUserWithEmailAndPassword(this.loginEmail,this.loginPw)
-        .then(()=>{
-          const uid=auth.currentUser.uid;
-          const displayName=this.loginEmail.split('@')[0].replace(/[._]/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
-          this.userName=displayName;
-          return db.collection('users').doc(uid).set({
-            userName:displayName,userEmail:this.loginEmail,userPhone:'',
-            profileImg:this.profileImg,unitName:'',yearModel:'',
-            notif:true,emailNotif:true,priceAlert:false,scanHistory:[],needItems:[],brokenParts:[],createdAt:new Date()
-          });
-        })
-        .then(()=>{this.loginErr='';this.loginLoading=false;this.toast('Account created! Welcome to MotoMatch.','success');})
-        .catch(err=>{this.loginErr=err.message||'Signup failed';this.loginLoading=false;});
+      try{
+        await auth.signInWithEmailAndPassword(email,this.loginPw);
+        this.loginErr='';
+        this.toast('Welcome back!','success');
+      }catch(err){
+        this.loginErr=this.authErrorMessage(err);
+      }finally{
+        this.loginLoading=false;
+      }
+    },
+
+    async doSignUp(){
+      if(!auth||!db){this.loginErr='Firebase not ready';return;}
+      const email=this.signupEmail.trim();
+      if(!email||!this.signupPw||!this.signupConfirmPw){this.loginErr='Please fill in all signup fields.';return;}
+      if(this.signupPw.length<6){this.loginErr='Password must be at least 6 characters.';return;}
+      if(this.passwordStrength(this.signupPw).className==='weak'){this.loginErr='Please use a stronger password before creating an account.';return;}
+      if(this.signupPw!==this.signupConfirmPw){this.loginErr='Passwords do not match.';return;}
+      this.loginLoading=true;
+      try{
+        const credential=await auth.createUserWithEmailAndPassword(email,this.signupPw);
+        const user=credential.user;
+        const displayName=email.split('@')[0].replace(/[._]/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
+        this.userName=displayName;
+        this.userEmail=email;
+        try{
+          await db.collection('users').doc(user.uid).set(this.defaultUserProfile(user,displayName),{merge:true});
+        }catch(profileErr){
+          console.warn('Account created, but profile save failed:',profileErr);
+          this.toast('Account created, but profile sync needs Firebase rules checked.','info');
+        }
+        this.loginEmail=email;
+        this.loginPw='';
+        this.signupPw='';
+        this.signupConfirmPw='';
+        this.loginErr='';
+        this.toast('Account created! Welcome to MotoMatch.','success');
+      }catch(err){
+        this.loginErr=this.authErrorMessage(err);
+      }finally{
+        this.loginLoading=false;
+      }
+    },
+
+    async sendPasswordReset(){
+      if(!auth){this.loginErr='Firebase not ready';return;}
+      const email=this.loginEmail.trim();
+      if(!email){this.loginErr='Enter your email first, then click forgot password.';return;}
+      this.loginLoading=true;
+      try{
+        await auth.sendPasswordResetEmail(email,{url:window.location.origin+'/index.html'});
+        this.loginErr='';
+        this.toast('Password reset email sent. Check your inbox.','success');
+      }catch(err){
+        this.loginErr=this.authErrorMessage(err);
+      }finally{
+        this.loginLoading=false;
+      }
+    },
+
+    async doGoogleAuth(){
+      if(!auth||!db){this.loginErr='Firebase not ready';return;}
+      this.loginErr='';
+      this.loginLoading=true;
+      try{
+        const provider=new firebase.auth.GoogleAuthProvider();
+        provider.setCustomParameters({prompt:'select_account'});
+        const credential=await auth.signInWithPopup(provider);
+        const user=credential.user;
+        if(!user)throw new Error('Google sign-in failed. Please try again.');
+        const displayName=user.displayName || (user.email?user.email.split('@')[0]:'Rider');
+        const userRef=db.collection('users').doc(user.uid);
+        const userDoc=await userRef.get();
+        if(!userDoc.exists){
+          await userRef.set(this.defaultUserProfile(user,displayName));
+        }else{
+          await userRef.set({
+            userEmail:user.email||userDoc.data().userEmail||'',
+            userName:userDoc.data().userName||displayName,
+            profileImg:this.preferSavedImage(userDoc.data().profileImg,this.profileImg,user.photoURL||this.defaultProfileImage()),
+            lastLoginAt:new Date()
+          },{merge:true});
+        }
+        this.toast('Google sign-in successful!','success');
+      }catch(err){
+        const messages={
+          'auth/popup-closed-by-user':'Google sign-in was cancelled.',
+          'auth/popup-blocked':'Popup was blocked. Allow popups for this site and try again.',
+          'auth/unauthorized-domain':'This domain is not authorized in Firebase Authentication.',
+          'auth/account-exists-with-different-credential':'This email already uses another sign-in method.'
+        };
+        this.loginErr=messages[err.code]||this.authErrorMessage(err);
+      }finally{
+        this.loginLoading=false;
+      }
     },
 
     logout(){
@@ -437,17 +631,23 @@ function motoApp(){
       }).catch(err=>console.error('Logout failed:',err));
     },
 
-    onAvatarSelect(e){
+    async onAvatarSelect(e){
       const f=e.target.files[0];if(!f)return;
       if(f.size>5*1024*1024){this.toast('Image too large. Max 5MB.','error');return;}
-      this.editAvatarFile=f;
-      const reader=new FileReader();
-      reader.onload=ev=>{this.tempImg=ev.target.result;this.profileImg=ev.target.result;};
-      reader.readAsDataURL(f);
+      try{
+        this.editAvatarFile=f;
+        const dataUrl=await this.imageFileToDataUrl(f,900,.85);
+        this.tempImg=dataUrl;
+        this.profileImg=dataUrl;
+        this.saveLocalState();
+      }catch(err){
+        this.editAvatarFile=null;
+        this.toast('Could not read that image. Try another photo.','error');
+      }
     },
 
-    onSettingsAvatarSelect(e){
-      this.onAvatarSelect(e);
+    async onSettingsAvatarSelect(e){
+      await this.onAvatarSelect(e);
       const file=e.target.files&&e.target.files[0];
       if(file){
         this.uploadAvatar(file).then(()=>this.toast('Profile picture saved.','success')).catch(()=>{});
@@ -480,15 +680,20 @@ function motoApp(){
       });
     },
 
-    onUnitImageSelect(e){
+    async onUnitImageSelect(e){
       const f=e.target.files[0];if(!f)return;
       if(f.size>5*1024*1024){this.toast('Image too large. Max 5MB.','error');return;}
-      if(!this.user){this.toast('Not logged in.','error');return;}
-      if(!storage){this.toast('Storage not ready. Try again.','error');return;}
-      // Show preview immediately while uploading
-      const reader=new FileReader();
-      reader.onload=ev=>{this.unitImg=ev.target.result;};
-      reader.readAsDataURL(f);
+      try{
+        this.unitImg=await this.imageFileToDataUrl(f,1200,.84);
+        this.save();
+      }catch(err){
+        this.toast('Could not read that image. Try another photo.','error');
+        return;
+      }
+      if(!this.user||!storage){
+        this.toast('Motorcycle photo saved on this device.','success');
+        return;
+      }
       this.toast('Uploading motorcycle photo...','info');
       const storageRef=storage.ref().child('users/'+this.user.uid+'/unitImg_'+Date.now());
       const uploadTask=storageRef.put(f);
@@ -512,12 +717,21 @@ function motoApp(){
       this.editAvatarFile=null;this.editModal=true;
     },
 
-    saveEdit(){
+    async saveEdit(){
       if(this.editName)this.userName=this.editName;
       this.userPhone=this.editPhone;
       this.save();
       if(this.editAvatarFile){
-        this.uploadAvatar(this.editAvatarFile).then(()=>{this.editModal=false;this.toast('Profile saved!','success');}).catch(()=>{this.editModal=false;});
+        try{
+          await this.uploadAvatar(this.editAvatarFile);
+          this.toast('Profile saved!','success');
+        }catch(err){
+          this.saveLocalState();
+          this.toast('Profile saved on this device.','success');
+        }finally{
+          this.editModal=false;
+          this.editAvatarFile=null;
+        }
       }else{
         this.editModal=false;this.toast('Profile saved!','success');
       }
@@ -566,16 +780,17 @@ function motoApp(){
       this.scanHistory=[];this.save();this.toast('Scan history cleared.','info');
     },
 
-    onFileSelect(e){
+    async onFileSelect(e){
       const f=e.target.files[0];if(!f)return;
-      this.previewMimeType=f.type||'image/jpeg';
-      const r=new FileReader();
-      r.onload=ev=>{
-        this.previewUrl=ev.target.result;
-        this.previewBase64=ev.target.result.split(',')[1];
+      try{
+        this.previewMimeType='image/jpeg';
+        this.previewUrl=await this.imageFileToDataUrl(f,1200,.82);
+        this.previewBase64=this.previewUrl.split(',')[1];
         this.scanStatus='idle';this.scanResult={};
-      };
-      r.readAsDataURL(f);
+        this.toast('Photo uploaded. Click Scan when ready.','success');
+      }catch(err){
+        this.toast('Could not read that image. Try another photo.','error');
+      }
     },
 
     resetScan(){
@@ -610,11 +825,13 @@ function motoApp(){
       this.previewBase64=this.previewUrl.split(',')[1];
       this.previewMimeType='image/jpeg';
       this.scanStatus='idle';this.scanResult={};
-      this.stopCamera();this.toast('Photo captured. Ready to scan.','success');
+      this.stopCamera();this.toast('Photo captured. Click Scan when ready.','success');
     },
 
     buildSearchQuery(partName){
-      return `${this.unitName||'motorcycle'} ${this.yearModel||''} ${partName}`.replace(/\s+/g,' ').trim();
+      const typed=(this.typedPartName||'').trim();
+      const part=typed||partName||'motorcycle replacement part';
+      return `${this.unitName||'motorcycle'} ${this.yearModel||''} ${part}`.replace(/\s+/g,' ').trim();
     },
 
     buildShopUrl(platform, partName){
@@ -630,6 +847,30 @@ function motoApp(){
       return routes[platform]||routes.google;
     },
 
+    buildShopUrlFromQuery(platform, queryText){
+      const query=encodeURIComponent((queryText||'').trim());
+      const routes={
+        shopee:`https://shopee.ph/search?keyword=${query}`,
+        lazada:`https://www.lazada.com.ph/catalog/?q=${query}`,
+        google:`https://www.google.com/search?tbm=shop&q=${query}`,
+        carousell:`https://www.carousell.ph/search/${query}`,
+        facebook:`https://www.facebook.com/marketplace/search/?query=${query}`,
+        aliexpress:`https://www.aliexpress.com/wholesale?SearchText=${query}`
+      };
+      return routes[platform]||routes.google;
+    },
+
+    shoppingLinksFromQuery(query){
+      return [
+        {label:'Shopee',url:this.buildShopUrlFromQuery('shopee',query),type:'shopee'},
+        {label:'Lazada',url:this.buildShopUrlFromQuery('lazada',query),type:'lazada'},
+        {label:'Google Shopping',url:this.buildShopUrlFromQuery('google',query),type:'other'},
+        {label:'Carousell',url:this.buildShopUrlFromQuery('carousell',query),type:'other'},
+        {label:'Facebook Marketplace',url:this.buildShopUrlFromQuery('facebook',query),type:'other'},
+        {label:'AliExpress',url:this.buildShopUrlFromQuery('aliexpress',query),type:'other'}
+      ];
+    },
+
     shoppingLinks(partName){
       return [
         {label:'Shopee',url:this.buildShopUrl('shopee',partName),type:'shopee'},
@@ -642,27 +883,27 @@ function motoApp(){
     },
 
     fallbackScanResult(){
-      const model=this.unitName||'saved motorcycle model';
-      const year=this.yearModel||'selected year model';
-      const category=this.partCategory==='Unknown part'?'motorcycle replacement part':this.partCategory;
-      const confidence=this.unitName&&this.yearModel?86:68;
-      const links=this.shoppingLinks(category);
+      return this.notFoundScanResult('AI could not identify a specific motorcycle part from this photo. Reupload a clearer picture or type the part name, then scan again.');
+    },
+
+    notFoundScanResult(description){
       return {
-        partName:category,
-        description:`The image appears to show a ${category.toLowerCase()}. Use the links below to search stores for ${model} ${year} ${category}.`,
-        searchQuery:this.buildSearchQuery(category),
-        compatibility:'Shopping links ready',
-        confidence,
+        status:'fail',
+        partName:'Item not found',
+        description:description||'MotoMatch could not identify the item in this photo. Reupload and scan again.',
+        searchQuery:'',
+        compatibility:'Item not found',
+        confidence:0,
         fitmentNotes:[
-          'Shopee and Lazada are checked first through store search links.',
-          'If those do not show the exact part, try the other online shop links.',
-          this.unitName&&this.yearModel?`Search is filtered with ${model} ${year}.`:'Add your motorcycle unit and year to make the search more specific.'
+          'Reupload a clearer, well-lit photo.',
+          'Make sure the part fills most of the frame.',
+          'Type the part name if you know it, then scan again.'
         ],
         sdgImpact:'',
-        shopeeUrl:links[0].url,
-        lazadaUrl:links[1].url,
-        otherShopLinks:links.slice(2),
-        shopLinks:links
+        shopeeUrl:'',
+        lazadaUrl:'',
+        otherShopLinks:[],
+        shopLinks:[]
       };
     },
 
@@ -670,18 +911,39 @@ function motoApp(){
       const fallback=this.fallbackScanResult();
       const raw=data&&data.result?data.result:data;
       if(!raw)return fallback;
+      const confidence=Number(raw.confidence||0);
+      const status=(raw.status||'').toString().toLowerCase();
+      const partName=raw.partName||raw.part_name||fallback.partName;
+      const searchQuery=raw.searchQuery||raw.search_query||this.buildSearchQuery(partName);
+      const nonPartPattern=/paper|document|receipt|book|notebook|page|text|letter|card|poster|screen|person|face|hand|food|bottle/i;
+      const unusable=status==='fail'
+        || status==='not_a_part'
+        || status==='not motorcycle part'
+        || /not found/i.test(partName)
+        || nonPartPattern.test(partName)
+        || nonPartPattern.test(searchQuery)
+        || !searchQuery
+        || /^(unknown|unclear|part)$/i.test(partName);
+      if(unusable){
+        const result=this.notFoundScanResult(raw.description);
+        result.confidence=confidence;
+        result.fitmentNotes=Array.isArray(raw.fitmentNotes)?raw.fitmentNotes:result.fitmentNotes;
+        return result;
+      }
+      const links=this.shoppingLinksFromQuery(searchQuery);
       return {
-        partName:raw.partName||raw.part_name||fallback.partName,
-        description:raw.description||fallback.description,
-        searchQuery:raw.searchQuery||raw.search_query||fallback.searchQuery,
+        status:'found',
+        partName,
+        description:raw.description||'Part identified. Use the shop links below and compare listing photos before buying.',
+        searchQuery,
         compatibility:raw.compatibility||'Shopping links ready',
-        confidence:Number(raw.confidence||fallback.confidence),
+        confidence,
         fitmentNotes:Array.isArray(raw.fitmentNotes)?raw.fitmentNotes:(Array.isArray(raw.fitment_notes)?raw.fitment_notes:(Array.isArray(raw.buyingTips)?raw.buyingTips:fallback.fitmentNotes)),
         sdgImpact:raw.sdgImpact||raw.sdg_impact||fallback.sdgImpact,
-        shopeeUrl:raw.shopeeUrl||fallback.shopeeUrl,
-        lazadaUrl:raw.lazadaUrl||fallback.lazadaUrl,
-        otherShopLinks:Array.isArray(raw.otherShopLinks)?raw.otherShopLinks:fallback.otherShopLinks,
-        shopLinks:Array.isArray(raw.shopLinks)?raw.shopLinks:fallback.shopLinks
+        shopeeUrl:raw.shopeeUrl||links[0].url,
+        lazadaUrl:raw.lazadaUrl||links[1].url,
+        otherShopLinks:Array.isArray(raw.otherShopLinks)?raw.otherShopLinks:links.slice(2),
+        shopLinks:Array.isArray(raw.shopLinks)?raw.shopLinks:links
       };
     },
 
@@ -707,11 +969,13 @@ function motoApp(){
     async doScan(){
       if(!this.previewBase64){this.toast('Upload or capture a part photo first.','error');return;}
       this.scanStatus='scanning';
+      const scanStartedAt=Date.now();
       const payload={
         image:this.previewBase64,
         mimeType:this.previewMimeType,
         motorcycle:{unitName:this.unitName,yearModel:this.yearModel},
         partCategory:this.partCategory,
+        typedPartName:this.typedPartName,
         mode:this.scanMode
       };
       try{
@@ -723,16 +987,28 @@ function motoApp(){
         if(!res.ok)throw new Error('API Error: '+res.status);
         const data=await res.json();
         this.scanResult=this.normalizeScanResult(data);
+        await this.keepScanAnimationVisible(scanStartedAt);
+        if(this.scanResult.status==='fail'){
+          this.scanStatus='fail';
+          this.toast('Item not found. Reupload and scan again.','error');
+          return;
+        }
         this.scanStatus='found';
         this.saveScanResult(this.scanResult,'found');
         this.toast('Part identified. Shop links are ready.','success');
       }catch(err){
         console.warn('AI route unavailable, using local shopping links:',err);
         this.scanResult=this.fallbackScanResult();
-        this.scanStatus='found';
-        this.saveScanResult(this.scanResult,'found');
-        this.toast('Could not reach live AI, but shopping links were generated.','info');
+        await this.keepScanAnimationVisible(scanStartedAt);
+        this.scanStatus='fail';
+        this.toast('Item not found. Reupload and scan again.','error');
       }
+    },
+
+    keepScanAnimationVisible(startedAt){
+      const elapsed=Date.now()-startedAt;
+      const remaining=Math.max(0,900-elapsed);
+      return new Promise(resolve=>setTimeout(resolve,remaining));
     }
   };
 }

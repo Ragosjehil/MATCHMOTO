@@ -96,24 +96,13 @@
               <div>
                 <span class="eyebrow">AI Shopping Finder</span>
                 <h2>Scan a motorcycle part and find where to buy it</h2>
-                <p x-text="unitName&&yearModel?'Searches Shopee, Lazada, and other shops for '+unitName+' '+yearModel+' parts.':'Upload or scan a part. Add your motorcycle unit/year for better search results.'"></p>
+                <p x-text="unitName&&yearModel?'Upload a photo, optionally type the part name, then scan '+unitName+' '+yearModel+' parts online.':'Upload a photo, optionally type the part name, then scan online results.'"></p>
               </div>
               <div class="fitment-controls">
-                <select x-model="partCategory">
-                  <option>Unknown part</option>
-                  <option>Brake pad</option>
-                  <option>Chain and sprocket</option>
-                  <option>Air filter</option>
-                  <option>Spark plug</option>
-                  <option>Clutch cable</option>
-                  <option>Electrical component</option>
-                  <option>Fairing or body panel</option>
-                </select>
-                <select x-model="scanMode">
-                  <option value="owner">DIY owner</option>
-                  <option value="shop">Repair shop</option>
-                  <option value="fleet">Fleet manager</option>
-                </select>
+                <div class="input-wrap">
+                  <i class="fas fa-wrench icon"></i>
+                  <input class="form-input" x-model="typedPartName" placeholder="Optional: type parts name (e.g. brake lever)">
+                </div>
               </div>
             </div>
             <div class="cam-box">
@@ -143,13 +132,13 @@
               </div>
 
               <button class="btn-scan" @click="captureFromCamera()" :disabled="!cameraActive||scanStatus==='scanning'" x-show="cameraActive">
-                <template x-if="scanStatus!=='scanning'"><span><i class="fas fa-camera"></i> CAPTURE & SCAN</span></template>
+                <template x-if="scanStatus!=='scanning'"><span><i class="fas fa-camera"></i> CAPTURE PHOTO</span></template>
                 <template x-if="scanStatus==='scanning'"><span><i class="fas fa-circle-notch spin"></i> Analyzing...</span></template>
               </button>
 
               <button class="btn-scan" @click="doScan()" :disabled="!previewUrl||cameraActive||scanStatus==='scanning'" x-show="!cameraActive">
-                <template x-if="scanStatus!=='scanning'"><span><i class="fas fa-search"></i> FIND THIS PART ONLINE</span></template>
-                <template x-if="scanStatus==='scanning'"><span><i class="fas fa-circle-notch spin"></i> Finding stores...</span></template>
+                <template x-if="scanStatus!=='scanning'"><span><i class="fas fa-search"></i> SCAN</span></template>
+                <template x-if="scanStatus==='scanning'"><span><i class="fas fa-circle-notch spin"></i> Finding parts...</span></template>
               </button>
 
               <div x-show="scanStatus==='found'" class="result-card found">
@@ -172,8 +161,13 @@
               <div x-show="scanStatus==='fail'" class="result-card fail">
                 <div class="result-icon"><i class="fas fa-times-circle"></i></div>
                 <div class="result-body">
-                  <h4>No Match Found</h4>
-                  <p>Try a clearer, well-lit photo. Make sure the part fills the frame.</p>
+                  <h4>Item Not Found</h4>
+                  <p x-text="scanResult.description||'Reupload a clearer picture and scan again.'"></p>
+                  <ul class="fitment-notes" x-show="scanResult.fitmentNotes&&scanResult.fitmentNotes.length">
+                    <template x-for="note in scanResult.fitmentNotes" :key="note">
+                      <li x-text="note"></li>
+                    </template>
+                  </ul>
                 </div>
               </div>
 

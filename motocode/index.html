@@ -55,12 +55,20 @@
   </div>
 
   <!-- SPLASH -->
-  <div class="splash" x-show="page==='splash'" x-cloak @click="page='login'">
+  <div class="splash" x-show="page==='splash'" x-cloak>
     <div class="splash-inner">
       <div class="splash-logo"><i class="fas fa-motorcycle"></i></div>
       <h1>MOTO<span>MATCH</span></h1>
       <p>FIND &bull; SCAN &bull; REUSE PARTS</p>
-      <div class="splash-cta">TAP TO START</div>
+      <div class="landing-copy">A motorcycle part matching system for identifying parts, finding shop links, and supporting repair before replacement.</div>
+      <div class="qr-panel">
+        <img :src="'https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=12&data='+encodeURIComponent(window.location.origin)" alt="MotoMatch access QR code">
+        <div>
+          <span>SCAN TO ACCESS</span>
+          <strong x-text="window.location.host || 'MotoMatch Web App'"></strong>
+        </div>
+      </div>
+      <button class="splash-cta" @click="page='login'">CONTINUE TO SYSTEM</button>
     </div>
   </div>
 
@@ -73,6 +81,7 @@
         <p>FIND &bull; SCAN &bull; REUSE</p>
       </div>
       <div class="login-right">
+        <div x-show="authMode==='login'">
         <h2>Welcome Back</h2>
         <div class="form-group">
           <label class="form-label">EMAIL ADDRESS</label>
@@ -92,14 +101,60 @@
         <div x-show="loginErr" class="error-msg" x-text="loginErr"></div>
         <div class="form-row">
           <label><input type="checkbox"> Remember me</label>
-          <a href="#">Forgot password?</a>
+          <a href="#" @click.prevent="sendPasswordReset()">Forgot password?</a>
         </div>
         <button class="btn btn-primary" @click="doLogin()">
           <span x-show="!loginLoading">LOGIN</span>
           <span x-show="loginLoading"><i class="fas fa-circle-notch spin"></i> Logging in...</span>
         </button>
         <div class="or-divider">— or —</div>
-        <button class="btn btn-secondary" @click="doSignUp()">CREATE ACCOUNT</button>
+        <button class="btn btn-google" @click="doGoogleAuth()" :disabled="loginLoading">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/>
+            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+          </svg>
+          CONTINUE WITH GOOGLE
+        </button>
+        <button class="btn btn-secondary" @click="switchAuthMode('signup')">CREATE ACCOUNT</button>
+        </div>
+
+        <div x-show="authMode==='signup'">
+          <h2>Create Account</h2>
+          <div class="form-group">
+            <label class="form-label">EMAIL ADDRESS</label>
+            <div class="input-wrap">
+              <i class="fas fa-envelope icon"></i>
+              <input class="form-input" type="email" x-model="signupEmail" placeholder="you@example.com">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">PASSWORD</label>
+            <div class="input-wrap">
+              <i class="fas fa-lock icon"></i>
+              <i :class="showSignupPw?'fas fa-eye':'fas fa-eye-slash'" class="eye" @click="showSignupPw=!showSignupPw"></i>
+              <input class="form-input" :type="showSignupPw?'text':'password'" x-model="signupPw" placeholder="••••••••">
+            </div>
+            <div class="strength-wrap" :class="passwordStrength(signupPw).className">
+              <div class="strength-bar"><span :style="`width:${Math.max(12,passwordStrength(signupPw).score*20)}%`"></span></div>
+              <p x-text="passwordStrength(signupPw).label"></p>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">RE-ENTER PASSWORD</label>
+            <div class="input-wrap">
+              <i class="fas fa-shield-alt icon"></i>
+              <input class="form-input" :type="showSignupPw?'text':'password'" x-model="signupConfirmPw" placeholder="••••••••" @keyup.enter="doSignUp()">
+            </div>
+          </div>
+          <div x-show="loginErr" class="error-msg" x-text="loginErr"></div>
+          <button class="btn btn-primary" @click="doSignUp()">
+            <span x-show="!loginLoading">CREATE ACCOUNT</span>
+            <span x-show="loginLoading"><i class="fas fa-circle-notch spin"></i> Creating...</span>
+          </button>
+          <button class="btn btn-secondary" @click="switchAuthMode('login')">BACK TO LOGIN</button>
+        </div>
       </div>
     </div>
   </div>

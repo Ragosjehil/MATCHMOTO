@@ -87,20 +87,20 @@
                 <input type="file" accept="image/*" style="display:none" @change="onBrokenImageSelect($event)">
               </label>
             </div>
-            <button class="btn btn-primary" style="margin-top:12px" @click="addBrokenPart()"><i class="fas fa-search"></i> SAVE & SCAN PART</button>
+            <button class="btn btn-primary" style="margin-top:12px" @click="addBrokenPart()"><i class="fas fa-save"></i> SAVE LIST</button>
           </section>
 
           <section class="broken-list-card">
             <div class="need-list-head">
               <div>
                 <span class="eyebrow">Saved Broken Parts</span>
-                <h2>Tap one to scan</h2>
+                <h2>Tap one to auto scan</h2>
               </div>
               <strong x-text="brokenParts.length"></strong>
             </div>
             <div x-show="brokenParts.length===0" class="empty-state">
               <i class="fas fa-wrench"></i>
-              <p>No broken parts saved yet. Add a name and picture, then tap it later to load it in the scanner.</p>
+              <p>No broken parts saved yet. Add a name and picture, then tap it later to scan it automatically.</p>
             </div>
             <template x-for="item in brokenParts.slice().reverse()" :key="item.id">
               <div class="broken-item">
